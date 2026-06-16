@@ -1,0 +1,559 @@
+{
+  "동사의 종류": {
+    "자동사": [
+      {
+        "minor": "1형식 문장",
+        "difficulty": "중",
+        "point": "1. 완전자동사 뒤에 부사(구)가 오는 특성 구별: 1형식 동사 뒤에는 형용사가 아닌 부사가 와서 동사를 수식함.\nex) The sun shines bright (X) -> The sun shines brightly. (O)\n\n2. 타동사로 착각하기 쉬운 1형식 자동사 (+ 전치사) 암기: 목적어를 취할 때 반드시 전치사가 필요한 동사들로, 전치사를 빼고 "
+      },
+      {
+        "minor": "2형식 문장",
+        "difficulty": "중상",
+        "point": "* 감각동사  look, sound, smell, taste, feel + 형용사  / like + 명사\n 1) 감각동사 뒤에 오는 형용사나 명사는 보어 역할이므로 부사가 오지 않음. 단, 부사처럼 보이는 형용사 lovely, friendly, cowardly, costly 등에 주의.\n 2) 일반동사 뒤에 오는 부사와 구별할 것 : ex) sing bea"
+      }
+    ],
+    "자동사, 타동사의 구분": [
+      {
+        "minor": "자동사, 타동사 모두 가능한 동사",
+        "difficulty": "상",
+        "point": "1. 목적어 유무에 따라 수동/능동의 의미가 변하는 동사: 주어가 스스로 하는 행동(자동사)인지, 목적어에 행동을 가하는 것(타동사)인지 구별할 것.\nopen: 열리다 (자) / ~을 열다 (타)\nclose: 닫히다 (자) / ~을 닫다 (타)\nbegin / start: 시작되다 (자) / ~을 시작하다 (타)\nex) The store opens at 9 "
+      },
+      {
+        "minor": "자동사, 타동사로 착각하기 쉬운 동사",
+        "difficulty": "상",
+        "point": "raise vs. rise \nseat vs. sit \nlay vs. lie \n\nex) The book is laying on the table. (X) -> The book is lying on the table. (O)\nex) She raised from her seat. (X) -> She rose from her seat. (O)\nex) Please "
+      }
+    ],
+    "타동사1": [
+      {
+        "minor": "3형식 문장",
+        "difficulty": "중",
+        "point": "* 3형식 동사 + 목적어 (명사/대명사) : 목적어 바로 뒤에 전치사를 쓰지 않음.\nex) I discussed about the problem. (X) -> I discussed the problem. (O)\nex) She married with him. (X) -> She married him. (O)\nex) He resembles to his fat"
+      }
+    ],
+    "타동사2": [
+      {
+        "minor": "3형식 타동사",
+        "difficulty": "중상",
+        "point": "* 자동사로 착각하기 쉬운 3형식 타동사 (뒤에 전치사 없이 바로 목적어):\ndiscuss, mention, explain (단, explain은 4형식처럼 보이나 3형식만 가능: explain + 목적어 + to + 사람)\nresemble, marry, reach, attend, enter, approach, contact, mention\nex) I at"
+      }
+    ],
+    "타동사2 4형식 동사 / 수여 동사 / 목적어 2개가 오는 동사": [
+      {
+        "minor": "4형식 동사 + 간접목적어 (~에게) + 직접목적어(~을, 를) /\n4형식 문장의 3형식 전환",
+        "difficulty": "상",
+        "point": "* 4형식 : 동사 + 간접목적어 (~에게) + 직접목적어 (~을, 를) :\n= 3형식 : 동사 + 직접목적어 (~을, 를) + to / for/ of + 간접목적어 (~에게)\n* give, tell, bring, write, show.... + to + 간접목적어\n* buy, make, get, cook, find... + for + 간접목적어\n* ask"
+      }
+    ]
+  },
+  "시제": {
+    "단순": [
+      {
+        "minor": "현재 시제",
+        "difficulty": "중",
+        "point": "반복적 습관, 현재의 상태, 과학적 사실, 격언, 가까운 미래를 나타낸다.\nI always fall asleep in the car. I don’t care about what they usually say. [반복적 습관] \nWe can’t keep protecting him forever. [현재의 상태] \nMiddle school starts next"
+      },
+      {
+        "minor": "과거 시제",
+        "difficulty": "하",
+        "point": "과거의 일 또는 역사적 사실을 나타낸다."
+      },
+      {
+        "minor": "미래 시제",
+        "difficulty": "중",
+        "point": "He is going to face a lot of new challenges there. [계획된 일: be going to + 동사원형] \nWe will explain later. [즉흥적 결정 또는 의지: will + 동사원형]"
+      }
+    ],
+    "진행": [
+      {
+        "minor": "진행형 규칙",
+        "difficulty": "중",
+        "point": "* 동사원형+ing 만들기\n1) 동사e -> 동사e + ing : coming, taking..\n2) 동사ie -> 동사ie + y + ing : lying, dying tying\n* studying, playing, enjoying 처럼 원래 y로 끝나는 동사는 y를 빼지 않고 y+ing \n*특히  studied, studies 를 쓰기 때문에 studi"
+      },
+      {
+        "minor": "진행형의 의문문",
+        "difficulty": "중",
+        "point": "*현재과거진행 의문문에서의 잦은 오류:\n 1) Be동사 + 주어 뒤에 동사ing 대신 동사원형을 씀.  ex) Were they visit visiting their grandpa's?\n 2) Be동사 + 주어 +동사ing 쓸때 Be동사 대신 Do(es), Did를 씀.  ex) Do Are the birds singing now?\n* 진행형 의문문에서 대"
+      },
+      {
+        "minor": "진행형의 부정문",
+        "difficulty": "중",
+        "point": "* 현재 / 과거진행 부정문에서의 잦은 오류:\n 1) 주어 + isn't, aren't, am not  뒤에 동사ing 대신 동사원형을 씀. ex) She isn't talk  talking to me.\n 2)  주어 +  isn't, aren't, am not 대신 don't, doesn't, didn't  + 동사ing 를 씀. ex) The cats "
+      },
+      {
+        "minor": "진행형 잘 안 쓰는 상태동사",
+        "difficulty": "상",
+        "point": "* 진행형을 쓸 수 없는 동사: '소유' '인지' 와 같은 '일시적 동작'으로 나타내기 어려운 '상태' 동사 계열은 진행형을 쓰지 않음: have, like, hate, want, know, remember, resemble...\n상태 지속(remain, stay) / 소유(have, belong to, own) / 존재(exist) 감정(want, car"
+      },
+      {
+        "minor": "진행형, 진행형 아닐때 의미 다른 동사",
+        "difficulty": "상",
+        "point": "* 주의: He is having a good time, She is having lunch. 처럼 have 가 '먹다' 나 '시간을 보내다' 뜻일땐 진행형 가능.\nMom and Dad were having a conversation about me. [동작, 대화하다]"
+      }
+    ],
+    "현재완료": [
+      {
+        "minor": "현재완료 쓰임(완료, 경험, 계속, 결과)",
+        "difficulty": "중상",
+        "point": "1.\t 계속: (지금까지) 쭉 ~해왔다 Miranda, Ella, and I have known each other since the first grade.\n2.\t 경험: (지금까지 ~해본 적 있다/없다) What’s so nice is we have never had to explain things to one another.\n3.\t 완료: (지금 시점에"
+      },
+      {
+        "minor": "현재 완료시제 vs.과거 시제",
+        "difficulty": "상",
+        "point": "과거 시제는 이미 종료된 하나의 ‘점(Point)’이고, 현재완료는 과거부터 현재까지 이어지는 ‘선(Line)’과 같다.\nI wanted them to call me Olivia. [과거의 특정 시점에 일어난 단발적 사건] \nThey’ve known August since he was a little baby. [과거부터 현재까지 이어짐]"
+      },
+      {
+        "minor": "현재 완료 진행시제",
+        "difficulty": "상",
+        "point": "* 현재완료진행 (have/has been + 동사ing) : 과거에 시작된 동작이 현재까지 '계속 진행 중'임을 강조.\nex) She has been waiting for an hour. (한 시간째 계속 기다리고 있다)\n\n* 현재완료(have p.p.) vs. 현재완료진행(have been -ing) 구별:\n- 현재완료: 동작의 '완료/결과' 또는 (상"
+      },
+      {
+        "minor": "과거 완료 시제 vs. 과거 시제",
+        "difficulty": "상",
+        "point": "Case 1. 같은 시간선상의 연속된 사건: 단순 과거\n두 사건이 같은 시간선상에서 연달아 일어날 때는 둘 다 단순 과거로 쓴다.\nHe said he didn’t believe me, so I told him Miranda and Ella were acting like jerks.\nWhen I got home, I found Dad in the kitche"
+      }
+    ],
+    "과거완료": [
+      {
+        "minor": "과거 완료 진행시제",
+        "difficulty": "상",
+        "point": "* 과거완료진행 (had been + 동사ing) : 과거의 특정 시점보다 더 이전에 시작된 동작이 그 과거 시점까지 '계속 진행' 중이었음을 나타냄.\nex) He had been studying for three hours when I called him. (전화했을 때(과거) 이미 3시간째 공부 중이었음)\n\n* 과거완료(had p.p.) vs. 과거완료"
+      }
+    ]
+  },
+  "조동사": {
+    "조동사의 의미": [
+      {
+        "minor": "조동사의 형태와 특징",
+        "difficulty": "중",
+        "point": "* 조동사는 동사 앞에서 동사를 도와주는 동사 : 의미가 있는 조동사 (can, will, must, may...) 와 의미가 없는 조동사 (do(es), did)가 있음.\n 1) 조동사 뒤에는 동사원형 (동사의 ing, es, ed) : ex) He can speaks speak Chinese.\n 2) 조동사는 주어가 3인칭단수라도 변화하지 않음 (예외:"
+      }
+    ],
+    "조동사의 종류 - can": [
+      {
+        "minor": "조동사 can 의 의미 / 부정문 can't",
+        "difficulty": "중",
+        "point": "* 조동사 can 의 2가지 뜻 구별할 것.\n 1) 능력 (~할 수 있다)\n 2) 허락, 요청 (~해도 좋다, ~해주시겠어요?) : may 로 바꿀 수 있음. ex) A: Can I go home?  B: Yes, you may (can).\n\n * 부정문 can't (=cannot ) : can not (X) 형태는 쓰지 않음.\n 1) 능력 (~할 수 없다"
+      },
+      {
+        "minor": "조동사 can / be able to",
+        "difficulty": "상",
+        "point": "1) 능력을 의미할때만 can = be able to로 바꿀 수 있음  : ex) Am I able to go home? (X)-> Can I go home? (O)\n 2) can과 be able to 를 같이 쓰지 않음 : ex) He can be able to swim.(X) -> He can (is able to) swim. (O)\n 3) can 의 "
+      },
+      {
+        "minor": "조동사 can 의 과거 could",
+        "difficulty": "중",
+        "point": "* can의 과거 could\n 1) 능력 (~할 수 있었다) =was / were able to + 동사원형\n 2) 허락, 요청 일땐 can 보다 더 공손한 표현에 쓰임."
+      }
+    ],
+    "조동사 will": [
+      {
+        "minor": "조동사 will / be going to",
+        "difficulty": "중상",
+        "point": "* 조동사 will 의 2가지 뜻 구별할 것.\n 1) 미래 (~일 것이다): 미래를 나타낼때 =be going to 로 바꿀 수 있음.\n 2) 공손한 요청(~해주시겠어요?) : 주로 의문문에서 쓰임. 더 공손하게 would 도 씀.\n\n* 주의\n 1) will (단순 미래,의지 ) 과 be going to (계획된 미래) 의 차이점을 구별 :\n ex)  A "
+      }
+    ],
+    "조동사 may": [
+      {
+        "minor": "조동사 may 의 의미",
+        "difficulty": "중",
+        "point": "* 조동사 may 의 2가지 뜻 구별\n 1) 추측 (~일지도 모른다) = might\n 2) 허락, 요청 (~해도 좋다, ~해주시겠어요?) : 허락, 요청의 뜻일때는 can 으로 바꿀 수 있다. \n\n* 주의: 허락, 요청에서  May (Might) you~? 는 쓰지 않음 . Can (Could, Would) I ~, Can (Could, Would) you"
+      }
+    ],
+    "조동사 must": [
+      {
+        "minor": "조동사 must 의 의미",
+        "difficulty": "중",
+        "point": "* 조동사 must 의 2가지 뜻 구별\n 1) 의무 (~해야만 한다) : 의무의 뜻일때만 =have to / has to 로 바꿀 수 있다\n 2) 추측 (~임에 틀림없다) : 추측의 조동사 must (강한 추측), may (약한 추측), can't (부정 추측)를 구별할 것"
+      },
+      {
+        "minor": "조동사 must / have (has) to",
+        "difficulty": "상",
+        "point": "1) must = have to / has to (~해야만 한다) : '~해야만 한다' 뜻일 때만 have (has) to 로 바꿔 쓸 수 있음.  ex) They must be very tired. = They have to be very tired. (X)\n 2) must 의 미래형 (~해야만 할 것이다) : will must  -> will have "
+      },
+      {
+        "minor": "부정문 must not /  don't (doesn't) have to",
+        "difficulty": "상",
+        "point": "* must  의 2가지 부정문 \n 1) don't have to :  ~ 할 필요 없다 ( 불필요) = don't need to = need not \n 2) must not : ~해서는 안된다 (강한 금지) , 축약형 mustn't (축약형 spelling 주의 할것), ~일리 없다 (부정 추측)는 'must not' 이 아니라 cannot'\n * 자주 "
+      }
+    ],
+    "조동사 should": [
+      {
+        "minor": "should 의 의미 /  부정문 shouldn't",
+        "difficulty": "중",
+        "point": "* ~해야만 한다 : must, have (has) to (강한 의무) , should (충고, 조언)\n* should 가 충고, 조언의 의미 일때 'why don't you~ ?' 나 'How (What) about ~?' 과 바꿔 쓸 수 있음.\n* 부정문 (~해서는 안된다) : should not = shouldn't (스펠링에 주의할 것)"
+      }
+    ],
+    "조동사 have pp": [
+      {
+        "minor": "should have p.p./should not have p.p.",
+        "difficulty": "상",
+        "point": "* should have p.p. : ~했어야 했는데 (안 했다) - 과거 행동에 대한 후회/유감\nex) I should have studied harder for the exam. (시험공부를 더 열심히 했어야 했는데 안 했다)\n\n* should not have p.p. : ~하지 말았어야 했는데 (했다) - 하지 않았어야 할 일을 한 것에 대한 후회/유"
+      },
+      {
+        "minor": "must have p.p. / may(might) have p.p.",
+        "difficulty": "상",
+        "point": "* have p.p. (had + p.p.) 와 결합한 조동사의 '과거에 대한 추측':\n1) must have p.p. : ~했음에 틀림없다 (강한 확신의 과거 추측)\n2) may (might) have p.p. : ~했을지도 모른다 (약한 추측, might가 더 약함)\nex) She must have left already. (그녀는 이미 떠났음에 틀림없"
+      },
+      {
+        "minor": "could have p.p. / could not have p.p.",
+        "difficulty": "상",
+        "point": "* could have p.p. : ~할 수도 있었는데 (안 했다) - 과거에 실현되지 않은 가능성/유감\nex) You could have called me earlier. (전화할 수도 있었는데 안 했다 - 아쉬움/질책)\n\n* could not have p.p. : ~했을 리 없다 - 과거 사실에 대한 강한 부정적 추측\nex) He couldn't hav"
+      }
+    ],
+    "조동사 관용 표현": [
+      {
+        "minor": "cannot help -ing, cannot but V",
+        "difficulty": "상",
+        "point": "* cannot help V-ing = cannot help but + 동사원형 = have no choice but to + 동사원형\n  : ~하지 않을 수 없다, ~할 수밖에 없다\nex) I couldn't help laughing at his joke. = I couldn't help but laugh at his joke.\n\n* 주의: 형태 혼동\n1"
+      },
+      {
+        "minor": "may well, may as well, cannot ~too, would you mind",
+        "difficulty": "상",
+        "point": "* may well + 동사원형 : ~하는 것은 당연하다 (= have good reason to)\nex) You may well be proud of your son. (네 아들을 자랑스러워하는 건 당연하다)\n\n* may as well + 동사원형 : ~하는 게 낫겠다 (다른 대안이 없을 때의 차선책, '차라리')\nex) It's raining, so w"
+      }
+    ]
+  },
+  "수동태": {
+    "수동태의 쓰임": [
+      {
+        "minor": "수동태 vs. 능동태\n수동태 만드는 방법",
+        "difficulty": "중",
+        "point": "* 수동태 만드는 방법: 능동태의 목적어 -> 수동태의 주어, be동사 + 과거분사(p.p.) + by + 행위자(목적격)\nex) She wrote the letter. -> The letter was written by her.\n\n* 능동 vs. 수동 구별 포인트:\n1) 주어가 행위를 '하는' 것인지 '받는' 것인지로 판단 -> 목적어가 없는데 능동태(타"
+      }
+    ],
+    "수동태의 시제": [
+      {
+        "minor": "현재시제\n과거시제\n미래시제\n완료시제\n조동사있는 수동태",
+        "difficulty": "중상",
+        "point": "* 수동태 시제별 형태: be동사를 시제에 맞게 바꾸고 + p.p.\n1) 현재: am/is/are + p.p. ex) The room is cleaned every day.\n2) 과거: was/were + p.p. ex) The window was broken yesterday.\n3) 미래: will be + p.p. ex) The report will b"
+      }
+    ],
+    "주의해야 할 수동태": [
+      {
+        "minor": "문장 구조에 따른 수동태(4형식)",
+        "difficulty": "상",
+        "point": "1.\t give, send, tell, show, teach: 간접 목적어(~에게)와 직접 목적어(~을/를) 모두 주어로 쓸 수 있다.\n2.\t buy, make, cook, find, get: 직접목적어(~을/를)만 주어로 쓸 수 있다. 간접목적어를 주어로 하면 어색하다.\nMiss Katherine Barlow cooked us spiced peaches."
+      },
+      {
+        "minor": "문장 구조에 따른 수동태(5형식)",
+        "difficulty": "상",
+        "point": "* 5형식 동사의 수동태:\n1) 목적격보어가 명사/형용사인 경우: be + p.p. + 명사/형용사 (보어는 그대로 뒤에 위치)\nex) They elected him president. -> He was elected president.\nex) We found the movie boring. -> The movie was found boring.\n\n2) 목"
+      },
+      {
+        "minor": "수동태 불가 동사",
+        "difficulty": "상",
+        "point": "* 타동사이지만 '상태'(소유, 소속, 존재, 성질, 유사 등)를 나타내는 동사는 수동태로 쓰지 않음:\nhave (소유), resemble (닮다), belong to (소속되다), consist of (구성되다), lack (부족하다), suit (어울리다), fit (맞다), cost (비용이 들다)\n\nex) The car is had by him. ("
+      }
+    ],
+    "수동태 관용 표현": [
+      {
+        "minor": "by 외의 전치사를 사용하는 경우",
+        "difficulty": "상",
+        "point": "* 일부 수동태 표현은 행위자를 나타내는 by 대신 다른 전치사를 씀 (감정/상태/관계를 나타내는 경우가 많음):\n\nbe interested in ~에 흥미가 있다\nbe satisfied with ~에 만족하다\nbe pleased with ~에 기뻐하다\nbe surprised at ~에 놀라다\nbe covered with ~으로 덮여 있다\nbe filled"
+      }
+    ]
+  },
+  "to부정사": {
+    "to 부정사의 주요 용법 - 명사적": [
+      {
+        "minor": "주어 역할 to 부정사 / 가주어 it",
+        "difficulty": "중",
+        "point": "* to 부정사의 형태 : to + 동사원형 ( 동사ed, ies, s, ing )\n*'~하는 것은, ~하기는, ~가' 로 해석함.\n* to 부정사가 주어 역할을 할때 문장 앞에 가주어 'it' 이 자주 쓰임 :   It (가주어) +.... + to 부정사 :\n  ex) To eat healthy meals is important. = It is impo"
+      },
+      {
+        "minor": "목적어 역할 to 부정사",
+        "difficulty": "중",
+        "point": "* to 부정사가 목적어 역할 : want, wish, hope, promise, learn, expect, decide...+ to 부정사 (목적어)\n* '~하는 것 을,를' 로 해석함.\n* start, begin, continue, love, like, hate...+ to 부정사 / 동사ing (동명사) 둘 다 목적어 가능.\n* 목적어 형태가 혼동되는"
+      },
+      {
+        "minor": "보어 역할 to 부정사",
+        "difficulty": "하",
+        "point": "*  be동사  뒤 to 부정사는 주로 보어 역할을 함 : ex) My dream is to travel around the world.\n* ~ 하는 것, ~하기 이다' 로 해석함.\n* to 부정사가 보어일 때 동사ing 로 바꿔쓸 수 있음 : ex) Her plan is to exercise (=exercising)  everyday."
+      }
+    ],
+    "to 부정사의 주요 용법 - 부사적": [
+      {
+        "minor": "부사 역할 : ~하기 위해 (목적), ~해서 (감정의 원인), ~하기에 (형용사 수식), ~해서 그 결과 (결과)",
+        "difficulty": "중상",
+        "point": "* '~하기 위해' (목적), '~해서 (감정의 원인), '  ~하기에  (형용사 수식)',  '~해서 그 결과' 등으로 해석함.\n* 주의 \n 1) '~하기 위해 (목적)' :  in order to 동사원형 = so as to 동사원형으로 바꿀 수 있음.\n 2) '~해서 (감정의 원인)' : 주로 'surprised, glad, disappointed.."
+      }
+    ],
+    "to 부정사의 주요 용법 - 형용사적": [
+      {
+        "minor": "형용사 역할 : 명사 수식",
+        "difficulty": "중",
+        "point": "* '~하는, ~할' 로 해석함.\n* 형용사 + to 부정사 (부사적 용법)  과 명사 + to 부정사 (형용사적 용법) 구별 : ex) easy to do (부사 역할), easy work to do (형용사 역할)\n* to 부정사 뒤에 전치사가 필요한 경우  :  ex) a friend to talk with, a house to live in, som"
+      }
+    ],
+    "to부정사 관용 표현": [
+      {
+        "minor": "to be +형용사\ntoo ~ to, enough to, so 형/부 that can(can't)\nS+ be 동사 + to V (예정, 의무, 가능, 운명, 의도/조건)\nit takes+사람+소요시간+ to V\nso that S V / so as to v",
+        "difficulty": "상",
+        "point": "1.\t have no choice but to + V: ~할 수밖에 없다 He had no choice but to act quickly.\n2.\t too A (형용사/부사) to B (동사원형): B 하기에는 너무 A 하다 (= 너무 A 해서 B 할 수 없다) He was too panicked to think clearly. = He was so pani"
+      }
+    ]
+  },
+  "동명사": {
+    "동명사의 주요 용법 - 명사 역할": [
+      {
+        "minor": "주어 / 보어 역할 동명사",
+        "difficulty": "중",
+        "point": "* 동명사의 형태 : 동사원형 + ing\n*  동명사의 의미: '~하는 것, ~하기' \n* 동명사가 주어나 보어 역할일때  to 부정사로 바꿔 쓸 수 있음.\n* 동명사, to 부정사가 주어일때 주어는 언제나 '단수'임에 주의 할것: ex) Solving (=To solve) many problems are is challenging.\n* be + 동사ing"
+      }
+    ],
+    "명사 역할": [
+      {
+        "minor": "목적어 역할 동명사",
+        "difficulty": "중",
+        "point": "* enjoy, mind, finish, practice, suggest, give up, consider...+ 동명사 (목적어)"
+      },
+      {
+        "minor": "전치사 목적어 역할 동명사 /  동명사가 들어간 표현들",
+        "difficulty": "중상",
+        "point": "* 전치사 뒤에 목적어로 명사나 동명사 (to 부정사는 X) : ex) She learned to swim by swim swimming in the stream.\n* 중요 동명사 표현들: go + -ing, be busy + -ing,  be worth + -ing, look forward to + -ing, How about -ing? thank you"
+      }
+    ],
+    "to부정사 vs 동명사": [
+      {
+        "minor": "동명사와 to부정사 모두 목적어로 갖는 동사\n의미가 달라지지 않는 동사\n의미가 달라지는 동사",
+        "difficulty": "상",
+        "point": "1. 둘 다 가능하고, 의미 차이가 없는 동사: like, hate, start, continue\n2. 목적어로 to 부정사와 동명사 둘 다 취할 수 있지만 의미차이 있는 동사: remember forget try stop\n 1) remember, forget, regret + to 부정사 : '~ 할 것을  (동사)하다'  ex) forgot to loc"
+      }
+    ],
+    "동명사 관용 표현": [
+      {
+        "minor": "go+ V-ing \nhave fun/trouble/difficulty/a hard time + V-ing\nspend/waste V-ing \nsit/stand/lie +V-ing\nfind/catch+ (pro)noun+ V-ing",
+        "difficulty": "상",
+        "point": "* on/upon + V-ing : ~하자마자 (= as soon as)\nex) On arriving home, she took a shower. (집에 도착하자마자)\n\n* be busy (in) V-ing : ~하느라 바쁘다\nex) He is busy preparing for the exam.\n\n* be worth V-ing : ~할 가치가 있다 (능동형"
+      }
+    ]
+  },
+  "명사": {
+    "셀 수 있는 명사": [
+      {
+        "minor": "",
+        "difficulty": "하",
+        "point": "셀 수 있는 명사는 하나일 때 a/an과 단수형을, 둘 이상일 때 복수형을 사용한다. 주로 명사 뒤에 -(e)s를 붙여 복수형을 만들지만, 불규칙하게 변하거나, 단수와 복수의 형태가 동일한 경우도 있다."
+      }
+    ],
+    "셀 수 없는 명사": [
+      {
+        "minor": "",
+        "difficulty": "하",
+        "point": "셀 수 없는 명사는 앞에 a/an을 붙이거나 복수형을 만들 수 없다.\n고유명사 구체적인 사람 이름, 지명, 요일 등\n물질명사 형태가 일정하지 않은 물질\n추상명사 형태가 없는 개념이나 감정\n* 물질명사는 단위를 나타내는 표현과 수량 표현으로 수량을 나타낼 수 있다."
+      }
+    ]
+  },
+  "관사": {
+    "부정관사": [
+      {
+        "minor": "부정관사 a/an의 쓰임",
+        "difficulty": "중",
+        "point": "단수 가산명사, 자음/모음 구분"
+      }
+    ],
+    "정관사": [
+      {
+        "minor": "정관사 the의 쓰임",
+        "difficulty": "중",
+        "point": "앞에 언급한 명사 재등장, 서로 알고 있는 것, 유일한 것, 최상급, 악기이름, 신체부위, 지명, the+ 형용사, the + 연대"
+      }
+    ],
+    "무관사": [
+      {
+        "minor": "",
+        "difficulty": "중",
+        "point": "1. 추상명사 (일반적인 개념)\nWilbur waved in friendly greeting. (인사) \nDeath was simply a part of life. (죽음) \nIn good time, he was to discover that he was mistaken about Charlotte. (시간)\n2. 고유명사 Wilbur / Charlotte"
+      }
+    ],
+    "관사에 따른 의미 변화": [
+      {
+        "minor": "",
+        "difficulty": "상",
+        "point": "1.\t 부정관사(a/an): 불특정한 하나 → 정관사(the): 앞에서 언급된 또는 맥락상 특정된 것 \nBut Wilbur felt a sudden fear. (막연하지만 특정한 두려움) → The fear didn’t go away easily. (앞서 언급된 그 두려움)\nShe would soon go on to save a life. (불특정한 하나의"
+      }
+    ]
+  },
+  "대명사": {
+    "재귀대명사": [
+      {
+        "minor": "재귀대명사의 형태 / 의미",
+        "difficulty": "중",
+        "point": "* 재귀대명사의 형태 : oneself (mineself myself, yourself, herself, hisself himself, ourself ourselves, themself themselves...) \n* 재귀대명사의 의미 \n 1) 강조 : 직접, 그 자신이... ex) I myself did this work. 빼도 문장이 성립함.\n 2) 재"
+      },
+      {
+        "minor": "재귀대명사가 들어간 표현",
+        "difficulty": "중",
+        "point": "*for oneself (스스로), by oneself (홀로, 혼자서), helf yourself (마음껏 드세요), make yourself at home (편히 쉬세요), teach oneself (독학하다)..."
+      }
+    ],
+    "부정대명사": [
+      {
+        "minor": "-thing, -body, -one 로 끝나는 대명사 / 형용사 후위 수식",
+        "difficulty": "중상",
+        "point": "* -thing, -body, -one : something, anything, nothing , someone, anyone, no one, nobody...\n* -thing, -body, -one 으로 끝나는 대명사는 형용사가 대명사 뒤에서 수식함 :  ex) I want to have fresh something something fresh.\n* so"
+      }
+    ],
+    "it": [
+      {
+        "minor": "비인칭 주어 it",
+        "difficulty": "상",
+        "point": "* it 의 다양한 의미 :  '비인칭 주어', '대명사', '가주어' \n 1) 비인칭 주어  : '날씨' '계절' '명암' '요일' '날짜' '거리' 등을 나타낼때 주어로 쓰이며 '그것'이라 해석하지 않음. ex) It's July first.\n 2) 대명사 : 앞에 나온 명사를 가리킬 때 쓰이며 '그것'이라 해석함. ex) It's not my watc"
+      }
+    ]
+  },
+  "수일치": {
+    "주어와 동사의 수일치": [
+      {
+        "minor": "단수 취급 주어",
+        "difficulty": "중상",
+        "point": "3인칭, to 부정사구, 간접 의문문, 동명사구, that절, nobody / everybody, one of + 복수명사"
+      },
+      {
+        "minor": "복수 취급 주어",
+        "difficulty": "중",
+        "point": "A and B, many of + 복수명사\n* You는 의미상 단수와 복수 모두 가능하나, 동사는 항상 복수형을 취한다."
+      },
+      {
+        "minor": "주의해야 하는 수 일치",
+        "difficulty": "상",
+        "point": "1.\t ‘-s’로 끝나는 단수 명사: 학문 분야, 병명, 국가명 등 \nMathematics is harder than I expected.\nThe United States is home to over 330 million people.\nThe news was shocking to everyone.\n2.\t ‘-s’가 없지만 항상 복수 취급하는 명사: poli"
+      }
+    ],
+    "시제 일치": [
+      {
+        "minor": "주절의 동사가 과거",
+        "difficulty": "상",
+        "point": "주절의 동사가 과거이고 주절과 종속절이 같은 시점일 때, 종속절은 과거 시제로 쓴다.\n※ 주절의 동사가 과거일 때 종속절의 조동사 will, can, may → would, could, might\n주절의 동사가 과거이고 종속절이 주절보다 더 앞선 시점일 때, 종속절은 과거완료로 쓴다."
+      },
+      {
+        "minor": "주절의 동사가 현재",
+        "difficulty": "하",
+        "point": "주절의 동사가 현재일 때는 종속절에 모든 시제가 올 수 있다."
+      },
+      {
+        "minor": "예외",
+        "difficulty": "상",
+        "point": "1.\t 주절의 시제와 상관없이 항상 과거 시제 사용 \nWe learned that the Wright brothers flew the first airplane in 1903. [역사적 사실]\n2.\t 주절의 시제와 상관없이 항상 현재 시제 사용 \nShe had once told Wilbur that a true friend never leaves when "
+      }
+    ]
+  },
+  "형용사": {
+    "시제 일치": [
+      {
+        "minor": "형용사의 쓰임",
+        "difficulty": "하",
+        "point": "형용사는 사람이나 사물의 형태, 상태, 수나 양을 나타낸다.\n1.\t 명사 수식(명사 앞)\n★ 단, - thing, - one, - body 등의 경우 형용사가 명사 뒤에 위치한다.\n2.\t 보어로서 주어나 목적어를 보충 설명한다."
+      }
+    ],
+    "수량 형용사": [
+      {
+        "minor": "some / any",
+        "difficulty": "중",
+        "point": "some / any 뒤에는 셀 수 있는 명사와 셀 수 없는 명사 둘 다 올 수 있다.\nsome + 긍정문 She rubbed some buttermilk all over Wilbur. (약간의 양) \nsome + 의문문 Would you like some crackers? (권유) \nany + 부정문 We don’t have any crackers. (완전"
+      },
+      {
+        "minor": "few/ little",
+        "difficulty": "중상",
+        "point": "a few 긍정 (몇몇 있는) + 복수 명사 A few pigs tried to get the judges’ attention.\nfew 부정 (거의 없는) + 복수 명사 Few pigs had ever looked so radiant.\na little 긍정 (약간 있는) + 셀 수 없는 명사 There was a little time to waste.\nli"
+      }
+    ]
+  },
+  "부사": {
+    "수량 형용사": [
+      {
+        "minor": "부사의 쓰임",
+        "difficulty": "하",
+        "point": "부사는 주로 [형용사 + ly] 형태로서, 시간, 장소, 방법, 빈도, 정도, 이유, 조건, 양보 등을 나타내며, 동사, 다른 부사, 형용사 또는 문장 전체를 꾸민다."
+      },
+      {
+        "minor": "헷갈리는 형용사와 부사",
+        "difficulty": "상",
+        "point": "1.\t ‘-ly’ 형태이지만, 형용사인 경우: friendly(다정한), lovely(사랑스러운), lively(활기찬), weekly(매주의), deadly(치명적인) 등\n2.\t ‘-ly’ 형태가 아니지만, 부사인 경우\n3. 의미가 달라지는 형용사-부사 close(형용사, 부사)- closely(부사)\n[형용사: 가까운] They were very clo"
+      }
+    ]
+  },
+  "비교급": {
+    "원급": [
+      {
+        "minor": "",
+        "difficulty": "중",
+        "point": "1.\t as 형용사/부사 as 명사: [~만큼 ~한 / 하게]\n2.\t as 형용사/부사 as possible = as 형용사/부사 as + 주어 + can[could]: [가능한 ~한 / 하게]"
+      }
+    ],
+    "비교급": [
+      {
+        "minor": "비교급/최상급 규칙 변화",
+        "difficulty": "중",
+        "point": "형용사 / 부사 + er than … \nmore + 형용사 / 부사 + than …\n\n대부분의 형용사 / 부사 taller - tallest \n-e로 끝날 때 larger - largest \n‘자음 + y’로 끝날 때 dirtier - dirtiest \n‘단모음 + 단자음’으로 끝날 때 bigger - biggest \n3음절 이상의 형용사 / 부사 more"
+      },
+      {
+        "minor": "비교급/최상급 불규칙 변화",
+        "difficulty": "중",
+        "point": "good / well - better - best \nbad / ill - worse - worst \nmany / much - more - most \nlittle - less - least \nfar - farther / further - farthest / furthest"
+      },
+      {
+        "minor": "비교급 관용 표현",
+        "difficulty": "중상",
+        "point": "1.\t The 비교급, the 비교급: [더 ~할수록, 더 ~하다]\n2.\t 비교급 and 비교급: [점점 더 ~한 / 하게]"
+      }
+    ],
+    "최상급": [
+      {
+        "minor": "최상급 규칙 변화",
+        "difficulty": "중",
+        "point": "형용사 / 부사 + est 가장 ~한 / 하게 the most + 형용사 / 부사\none of the + 최상급 + 복수명사 가장 ~한 것들 중의 하나"
+      }
+    ],
+    "원급, 비교급, 최상급": [
+      {
+        "minor": "강조 표현",
+        "difficulty": "상",
+        "point": "원급 강조: very, so, quite (매우, 꽤, 상당히) 등을 사용한다.\nThe spider’s web was very beautiful in the morning light.\n비교급 강조: even, much, far, a lot, still 등을 사용하며, ‘훨씬’이라는 의미로 해석된다.\nCharlotte’s plan worked much bet"
+      }
+    ]
+  },
+  "접속사": {
+    "등위 접속사": [
+      {
+        "minor": "and, but, or",
+        "difficulty": "중",
+        "point": "같은 품사의 단어끼리, 구와 구, 절과 절을 연결하는 접속사: and, but, or, so, yet(그러나) 등\n접속사로 연결되는 요소들은 동일한 문법 형식을 가지고 있어야 한다."
+      }
+    ],
+    "상관 접속사": [
+      {
+        "minor": "both A and B, either A or B neither",
+        "difficulty": "상",
+        "point": "두 단어 이상이 짝을 이루어 관계를 보여주는 접속사: both A and B (A와 B 둘 다), neither A nor B (A도 B도 아닌), either A or B (A 또는 B), not only A but also B (A뿐만 아니라 B도)\n접속사로 연결되는 요소들은 동일한 문법 형식을 가지고 있어야 한다.\n* 상관 접속사와 수 일치\n1.\t B"
+      }
+    ],
+    "부사절 접속사 - 시간": [
+      {
+        "minor": "시간의 부사절 접속사 when, after, before",
+        "difficulty": "상",
+        "point": "*시간, 조건의 부사절 접속사 절의 위치: 접속사  문장이 앞에 올때는 부사절 뒤에 '콤마' : ex) When I arrived at the station, the train already left.= The train already left when I arrived at the station.\n* 시간의 접속사 when (~할 때) 와 의문사 when"
+      }
+    ],
+    "부사절 접속사 - 조건": [
+      {
+        "minor": "시간의 부사절 접속사 if, unless\nas long as, as far as, once, in case that",
+        "difficulty": "상",
+        "point": "* 조건의 부사절 접속사:\n1) if (만약 ~라면) - 긍정 조건\n2) unless (= if ~ not, 만약 ~하지 않는다면) - unless 자체에 부정의 의미가 있으므로 not과 함께 쓰지 않음.\n   ex) Unless you don't hurry, you'll miss the bus. (X) -> Unless you hurry, you'll m"
+      }
+    ],
+    "명사절 접속사 that": [
+      {
+        "minor": "주어절, 보어절 접속사 that / it 가주어 that",
+        "difficulty": "상",
+        "point": "* 접속사란? : 단어, 구, 절 (주어 + 동사 가 들어간 문장) 을 연결해 줌.\n* 명사절 접속사 that : 접속사 that 은 절과 절을 연결.  that 이 이끄는 문장이  '명사' (주어, 목적어, 보어) 역할을 함.\n* 주어절 접속사 that : that~ 가 주어 역할 (~은,는,이,가)\n 1) 주어절 that 은 언제나 단수 : ex) Th"
+      },
+      {
+        "minor": "목적어절 접속사 that / 접속사 that 의 생략",
+        "difficulty": "",
+        "point": "* 목적어절 접속사 that :  that~ 가 목적어 역할 (~을, 를,~이라고)\n 1) 주로 think, believe, hope, say, know 뒤에 that 절이 올때 \n 2) 목적어절을 이끄는 that 은 생략할 수 있음.  ex) I think (that) she can do it.\n 3) 목적어절 that 과 지시대명사 that 의 구별 :"
+      }
+    ]
+  }
+}
