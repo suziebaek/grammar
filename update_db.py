@@ -25,9 +25,9 @@ def update_questions():
             "s": str(row.get("소단원", "")).strip(),
             "t": str(row.get("문제유형", "")).strip(),
             "q": str(row.get("발문", "")).strip(),
-            "c": str(row.get("보기/ 지문", "")).strip()[:300],
+            "c": str(row.get("보기/ 지문", "")).strip(),
             "a": str(row.get("정답", "")).strip(),
-            "e": str(row.get("해설", "")).strip()[:250],
+            "e": str(row.get("해설", "")).strip(),
         })
 
     out = BASE / "questions_db.json"

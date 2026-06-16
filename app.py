@@ -394,16 +394,21 @@ with tab2:
         kl = kw.lower()
         filtered = [q for q in filtered if kl in q["q"].lower() or kl in q["s"].lower() or kl in q["c"].lower()]
 
+    def render_newlines(text: str) -> str:
+        """줄바꿈 문자를 마크다운 줄바꿈(스페이스2개+\n)으로 변환"""
+        return text.replace("\n", "  \n")
+
     st.markdown(f"**검색 결과: {len(filtered)}문제**")
     for q in filtered[:30]:
-        with st.expander(f"[{q['u']} > {q['s']}] {q['t']} — {q['q'][:50]}..."):
+        with st.expander(f"[{q['u']} > {q['s']}] {q['t']} — {q['q'][:60]}"):
             st.markdown(f"**발문:** {q['q']}")
             if q["c"]:
                 st.markdown("**보기/지문:**")
-                st.markdown(q["c"])
+                st.markdown(render_newlines(q["c"]))
             st.markdown(f'<div class="answer-box">✅ <b>정답:</b> {q["a"]}</div>', unsafe_allow_html=True)
             if q["e"]:
-                st.markdown(f'<div class="explanation-box">💡 <b>해설:</b> {q["e"]}</div>', unsafe_allow_html=True)
+                st.markdown("💡 **해설:**")
+                st.markdown(render_newlines(q["e"]))
     if len(filtered) > 30:
         st.info("상위 30개만 표시됩니다. 필터를 좁혀 검색하세요.")
 
