@@ -61,7 +61,7 @@ def update_concepts():
         hierarchy[major][mid].append({
             'minor': minor,
             'difficulty': diff,
-            'point': point[:300]
+            'point': point,   # 전체 저장
         })
 
     out = BASE / "concept_hierarchy.json"

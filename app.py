@@ -164,8 +164,8 @@ with tab1:
                 diff = selected_item["difficulty"]
                 diff_class = f"diff-{diff}" if diff else ""
                 st.markdown(
-                    f'④ 난이도: <span class="diff-badge {diff_class}">{diff if diff else "미분류"}</span>',
-                    unsafe_allow_html=True
+                    f'④ 개념의 난이도: <span class="diff-badge {diff_class}">{diff if diff else "미분류"}</span>',
+                    unsafe_allow_html=True,
                 )
                 if selected_item.get("point"):
                     with st.expander("💡 출제 포인트 보기"):
@@ -236,12 +236,6 @@ with tab1:
         elif not selected_types:
             st.error("문제 유형을 하나 이상 선택해주세요.")
         else:
-            ref_samples = random.sample(ref_pool, min(5, len(ref_pool)))
-            ref_text = "\n\n".join([
-                f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}\n해설: {q['e']}"
-                for i, q in enumerate(ref_samples)
-            ])
-
             genai.configure(api_key=api_key)
             model = genai.GenerativeModel("gemini-1.5-flash")
 
@@ -252,32 +246,46 @@ with tab1:
             for idx, qtype in enumerate(selected_types):
                 progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 생성 중...")
 
-                concept_info = ""
-                if selected_item:
-                    concept_info = f"\n출제 포인트: {selected_item.get('point','')[:400]}"
+                # 문제 유형이 같은 기출 우선, 없으면 단원 기준, 없으면 전체
+                type_matched = [q for q in QUESTIONS if q["t"] == qtype]
+                unit_matched = [q for q in QUESTIONS if selected_major in q["u"]]
+                qtype_pool = type_matched if len(type_matched) >= 3 else (unit_matched if unit_matched else QUESTIONS)
+                ref_samples = random.sample(qtype_pool, min(5, len(qtype_pool)))
+                ref_text = "\n\n".join([
+                    f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}\n해설: {q['e']}"
+                    for i, q in enumerate(ref_samples)
+                ])
+
+                point_text = selected_item.get("point", "") if selected_item else ""
 
                 prompt = f"""당신은 강남구 중학교 영어 시험 문제 전문 출제자입니다.
-아래 기출 문제들의 스타일, 발문 형식, 선지 구성 방식을 정확히 분석하여 응용 문제를 출제하세요.
 
-=== 참고 기출 문제 ===
+=== [역할 A] 기출 문제 — 발문 형식·선지 스타일·보기 구성 참고용 ===
+아래 기출 문제들은 오직 발문 형식, 선지 구성 방식, 보기 스타일을 참고하기 위한 자료입니다.
+출제할 문법 개념과 내용은 아래 기출에서 가져오지 마세요.
+
 {ref_text}
 
-=== 출제 조건 ===
+=== [역할 B] 출제 개념 — 반드시 이 내용을 기반으로 출제 ===
 - 문법 대분류: {selected_major}
 - 문법 중분류: {selected_mid}
 - 문법 소분류: {selected_minor_label}
-- 난이도: {diff if diff else '미지정'}{concept_info}
+- 난이도: {diff if diff else '미지정'}
+- 출제 포인트 (문제에서 반드시 다뤄야 할 핵심 개념):
+{point_text}
+
+=== 출제 조건 ===
 - 문제 유형: {qtype}
 - 생성 개수: {num_per_type}개
 - 추가 요청: {extra if extra else '없음'}
 
 === 출제 규칙 ===
-1. 기출 문제와 동일한 발문 스타일 사용 (예: "밑줄 친 부분이 어법상 맞는 것은?")
-2. 선지는 ①②③④⑤ 형식으로 5개 구성
-3. 각 문제마다 반드시 [정답]과 [해설] 포함
-4. 해설은 오답 이유도 함께 설명 (기출 해설 스타일 참고)
-5. 영어 문장은 자연스럽고 실제 시험에 나올 법한 수준으로
-6. 소분류 개념에 정확히 집중하여 출제할 것
+1. 문제의 핵심 개념은 반드시 [역할 B]의 출제 포인트에서만 가져올 것
+2. 발문 형식과 선지 스타일은 [역할 A] 기출 문제를 그대로 참고할 것
+3. 선지는 ①②③④⑤ 형식으로 5개 구성
+4. 각 문제마다 반드시 [정답]과 [해설] 포함
+5. 해설은 오답 이유도 함께 설명 (기출 해설 스타일 참고)
+6. 영어 문장은 자연스럽고 실제 시험에 나올 법한 수준으로
 
 === 출력 형식 (반드시 준수) ===
 【문제 N】
@@ -354,7 +362,8 @@ with tab1:
                     if "정답" in parts:
                         st.markdown(f'<div class="answer-box">✅ <b>정답:</b> {parts["정답"]}</div>', unsafe_allow_html=True)
                     if "해설" in parts:
-                        st.markdown(f'<div class="explanation-box">💡 <b>해설:</b><br>{parts["해설"]}</div>', unsafe_allow_html=True)
+                        st.markdown("💡 **해설:**")
+                        st.markdown(parts["해설"].replace("\n", "  \n"))
                     st.markdown('</div>', unsafe_allow_html=True)
 
         # 통합 다운로드
