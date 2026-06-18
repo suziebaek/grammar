@@ -3,6 +3,7 @@ import json
 import random
 from pathlib import Path
 import google.generativeai as genai
+from openai import OpenAI, AzureOpenAI  # 통합 라우팅을 위해 추가된 패키지
 
 # ── 페이지 설정 ───────────────────────────────────────────
 st.set_page_config(
@@ -11,7 +12,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# ── 데이터 로드 ───────────────────────────────────────────
+# ── 데이터 로드 (원본 JSON 방식 100% 유지) ───────────────────────
 BASE = Path(__file__).parent
 
 @st.cache_data
@@ -37,7 +38,7 @@ ALL_TYPES = sorted(set(q["t"] for q in QUESTIONS if q["t"]))
 SORTED_TYPES = [t for t in PRIMARY_TYPES if t in ALL_TYPES] + \
                [t for t in ALL_TYPES if t not in PRIMARY_TYPES]
 
-# ── CSS ──────────────────────────────────────────────────
+# ── CSS (원본 유지) ──────────────────────────────────────────────────
 st.markdown("""
 <style>
   .main-header {
@@ -101,7 +102,39 @@ st.markdown("""
 # ── 사이드바 ──────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### ⚙️ 설정")
-    api_key = st.text_input("Gemini API Key", type="password", placeholder="AIza...")
+    
+    # 🚀 수정됨: 단일 입력창으로 모든 API 키 통합 처리
+    raw_api_key = st.text_input(
+        "🔑 통합 API Key 입력창", 
+        type="password", 
+        placeholder="OpenRouter, Google AI, Azure 키 입력"
+    )
+    
+    # 🚀 수정됨: 선생님이 요청하신 모델 라인업 옵션
+    selected_model = st.selectbox(
+        "🤖 출제 인공지능 엔진 모델",
+        options=["anthropic/claude-opus-4.8", "openai/gpt-5.1", "google/gemini-3.1-pro-preview"]
+    )
+    
+    # 🚀 추가됨: API 키 형태를 감지하여 연결될 프로토콜 표시
+    detected_platform = "대기 중..."
+    if raw_api_key:
+        if raw_api_key.startswith("sk-or-"):
+            detected_platform = "🔗 OpenRouter 허브 모드"
+        elif raw_api_key.startswith("AIzaSy"):
+            detected_platform = "♊ Google AI Studio 모드"
+        elif len(raw_api_key) == 32 or "azure" in raw_api_key.lower():
+            detected_platform = "☁️ Microsoft Azure 모드"
+        elif raw_api_key.startswith("sk-"):
+            detected_platform = "🟢 OpenAI 직결 모드"
+            
+    if raw_api_key:
+        st.caption(f"**활성화된 연결:** `{detected_platform}`")
+        
+        # Azure 사용 시 엔드포인트 URL 추가 입력창 노출
+        if "Azure" in detected_platform:
+            azure_endpoint = st.text_input("Azure Endpoint URL", placeholder="https://YOUR_RESOURCE.openai.azure.com/")
+
     st.markdown("---")
     st.markdown("### 📊 DB 현황")
     c1, c2 = st.columns(2)
@@ -231,17 +264,35 @@ with tab1:
 
     # ── 생성 실행 ─────────────────────────────────────────
     if generate_btn:
-        if not api_key:
-            st.error("사이드바에 Gemini API Key를 입력해주세요.")
+        if not raw_api_key:
+            st.error("⚠️ 사이드바에 통합 API Key를 입력해주세요.")
         elif not selected_types:
-            st.error("문제 유형을 하나 이상 선택해주세요.")
+            st.error("⚠️ 문제 유형을 하나 이상 선택해주세요.")
         else:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
-
             batch_results = []
             progress = st.progress(0, text="생성 중...")
             total = len(selected_types)
+            
+            # 🚀 수정됨: 통합 라우팅 클라이언트 셋업
+            client = None
+            is_google_native = False
+            
+            if raw_api_key.startswith("sk-or-"):
+                client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=raw_api_key)
+            elif raw_api_key.startswith("AIzaSy"):
+                genai.configure(api_key=raw_api_key)
+                is_google_native = True
+            elif len(raw_api_key) == 32 or "azure" in raw_api_key.lower():
+                try:
+                    client = AzureOpenAI(
+                        api_key=raw_api_key,
+                        api_version="2024-02-15-preview", # Azure 표준 버전
+                        azure_endpoint=azure_endpoint
+                    )
+                except NameError:
+                    st.error("Azure 연결을 위한 엔드포인트 URL을 입력해주세요.")
+            else:
+                client = OpenAI(api_key=raw_api_key) # 표준 OpenAI
 
             for idx, qtype in enumerate(selected_types):
                 progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 생성 중...")
@@ -258,6 +309,7 @@ with tab1:
 
                 point_text = selected_item.get("point", "") if selected_item else ""
 
+                # 🚀 수정됨: 프롬프트 품질 고도화 지침 추가
                 prompt = f"""당신은 강남구 중학교 영어 시험 문제 전문 출제자입니다.
 
 === [역할 A] 기출 문제 — 발문 형식·선지 스타일·보기 구성 참고용 ===
@@ -279,13 +331,14 @@ with tab1:
 - 생성 개수: {num_per_type}개
 - 추가 요청: {extra if extra else '없음'}
 
-=== 출제 규칙 ===
+=== ★ 출제 규칙 및 함정 가이드라인 (매우 중요) ★ ===
 1. 문제의 핵심 개념은 반드시 [역할 B]의 출제 포인트에서만 가져올 것
 2. 발문 형식과 선지 스타일은 [역할 A] 기출 문제를 그대로 참고할 것
-3. 선지는 ①②③④⑤ 형식으로 5개 구성
-4. 각 문제마다 반드시 [정답]과 [해설] 포함
-5. 해설은 오답 이유도 함께 설명 (기출 해설 스타일 참고)
-6. 영어 문장은 자연스럽고 실제 시험에 나올 법한 수준으로
+3. [치명적 오답 설계]: 'cans', 'musted', 'wills' 같이 영어에 존재하지 않는 유치한 가짜 단어를 만드는 것을 **절대 금지**한다. 
+4. 오답(함정)을 만들 때는 주어와 동사 사이를 멀리 떨어뜨리거나, 병렬 구조 속에 수일치 오류를 숨기는 등 구조적으로 교묘하게 설계할 것.
+5. 선지는 ①②③④⑤ 형식으로 5개 구성, 각 문제마다 [정답]과 [해설] 포함
+6. 해설은 오답 이유도 함께 상세히 설명 (기출 해설 스타일 참고)
+7. 영어 문장은 시사 에세이나 학술적인 느낌을 담아 고등학교 모의고사 수준으로 창작할 것.
 
 === 출력 형식 (반드시 준수) ===
 【문제 N】
@@ -307,10 +360,30 @@ with tab1:
 ---
 """
                 try:
-                    response = model.generate_content(prompt)
-                    batch_results.append({"type": qtype, "text": response.text})
+                    # 🚀 수정됨: 통합 라우팅 통신 로직
+                    if is_google_native:
+                        # Gemini Native 처리
+                        gemini_model_name = "gemini-1.5-pro" if "gemini" in selected_model.lower() else "gemini-1.5-pro"
+                        model = genai.GenerativeModel(gemini_model_name)
+                        response = model.generate_content(prompt)
+                        result_text = response.text
+                    else:
+                        # OpenRouter / OpenAI / Azure 공통 처리
+                        target_model = selected_model
+                        # 만약 순수 OpenAI 키인데 claude를 골랐을 경우를 대비한 폴백 처리
+                        if "sk-" in raw_api_key and not raw_api_key.startswith("sk-or-") and "gpt" not in selected_model:
+                            target_model = "gpt-4o"
+                            
+                        response = client.chat.completions.create(
+                            model=target_model,
+                            messages=[{"role": "user", "content": prompt}],
+                            temperature=0.75
+                        )
+                        result_text = response.choices[0].message.content
+
+                    batch_results.append({"type": qtype, "text": result_text})
                 except Exception as e:
-                    batch_results.append({"type": qtype, "text": f"[오류] {e}"})
+                    batch_results.append({"type": qtype, "text": f"[오류] 출제 엔진 통신 실패: {e}"})
 
             progress.progress(1.0, text="✅ 생성 완료!")
 
@@ -326,8 +399,9 @@ with tab1:
             }
             st.session_state.history.append(entry)
             st.session_state.pending = [entry]
+            st.rerun()
 
-    # ── 결과 표시 ─────────────────────────────────────────
+    # ── 결과 표시 (원본 유지) ─────────────────────────────────────────
     if st.session_state.pending:
         entry = st.session_state.pending[-1]
         st.markdown("---")
@@ -380,7 +454,7 @@ with tab1:
 
 
 # ════════════════════════════════════════════════════════
-# TAB 2 : 기출 문제 탐색
+# TAB 2 : 기출 문제 탐색 (원본 기능 100% 보존)
 # ════════════════════════════════════════════════════════
 with tab2:
     st.markdown("### 기출 문제 탐색")
@@ -423,7 +497,7 @@ with tab2:
 
 
 # ════════════════════════════════════════════════════════
-# TAB 3 : 생성 기록
+# TAB 3 : 생성 기록 (원본 기능 100% 보존)
 # ════════════════════════════════════════════════════════
 with tab3:
     st.markdown("### 생성 기록")
