@@ -286,7 +286,6 @@ with tab1:
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
         st.markdown("**문제 유형 선택 (복수 가능)**")
 
-        # 🚀 에러 방지용 안전장치 (가장 완벽한 형태)
         safe_default = ["어법상 맞는 것"] if "어법상 맞는 것" in SORTED_TYPES else (SORTED_TYPES[:1] if SORTED_TYPES else None)
 
         selected_types = st.multiselect(
@@ -370,14 +369,11 @@ with tab1:
 
                 prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
 
-=== [역할 A] 기출문제 벤치마킹 (형식 및 오답 설계 논리 카피) ===
-아래 5개의 기출문제는 당신이 타겟으로 삼아야 할 '최고 수준의 퀄리티'를 보여줍니다.
-단순히 번호 형식(①②③)만 베끼는 것이 아니라, **지문의 길이, 어휘의 난이도, 고등학생을 속이는 교묘한 오답(Distractor) 설계 논리, 그리고 논리적인 해설 방식까지 100% 완벽하게 모방(Copy)** 하세요.
-
-[참고용 기출문제 5선]
+=== [역할 A] 기출문제 벤치마킹 ===
+아래 기출문제를 통해 발문 형식, 선지 구성 방식, 보기 스타일을 완벽하게 모방하세요.
 {ref_text}
 
-=== [역할 B] 출제 타겟 개념 (이 개념을 주제로 출제할 것) ===
+=== [역할 B] 출제 타겟 개념 ===
 - 대분류: {selected_major}
 - 중분류: {selected_mid}
 - 소분류: {selected_minor_label}
@@ -389,31 +385,24 @@ with tab1:
 - 생성 개수: {num_per_type}개
 - 추가 요청: {extra if extra else '없음'}
 
-=== ★ 객관식 선지 작성 절대 규칙 (치명적 출제 오류 방지) ★ ===
-1. [역할 B]의 핵심 포인트를 기반으로 출제하되, 문장의 퀄리티는 [역할 A]를 닮아야 합니다.
-2. "어법상 맞는 것을 고르시오" 유형: 정답인 1개 선지만 문법적으로 완벽해야 하며, 나머지 4개 선지는 반드시 논란의 여지가 없는 100% 명백한 문법적 오류(예: 자동사의 수동태 사용 등)를 포함해야 합니다.
-3. "어법상 틀린 것을 고르시오" 유형: 정답인 1개 선지만 명백한 문법적 오류가 있어야 하며, 나머지 4개 선지는 완벽하게 올바른 문장이어야 합니다.
-4. **[사후 정당화 절대 금지]**: 문법적으로 올바른 선지를 만들어 놓고 해설에서 "문맥상 어색하다", "병렬 구조라 생략해야 한다", "학습 포인트가 아니다" 등의 억지 핑계를 대며 오답 처리하는 것을 엄격히 금지합니다. 오답은 오직 '문법적 오류 팩트'로만 증명해야 합니다.
-5. 'cans', 'musted' 처럼 존재하지 않는 유치한 단어를 지어내지 말고, 수식어구로 주어-동사 거리를 벌리는 등 구문 분석을 요하는 실전형 함정을 파세요.
-6. 선지는 ①②③④⑤ 형식으로 5개 구성, 각 문제마다 [정답]과 [해설]을 포함하세요.
+=== ★ 출제 규칙 ===
+1. [치명적 오답 설계]: 'cans', 'musted' 같이 존재하지 않는 유치한 단어를 지어내는 것을 엄격히 금지합니다.
+2. 오답(함정)을 만들 때는 주어와 동사 사이를 멀리 떨어뜨리거나 구문 분석을 요하도록 교묘하게 설계하세요.
+3. 선지는 ①②③④⑤ 형식으로 5개 구성, 각 문제마다 [정답]과 [해설]을 포함하세요.
 
 === 출력 형식 (반드시 준수) ===
 【문제 N】
 [발문]
-발문 내용
+내용
 
 [보기/지문]
 ① ...
 ② ...
-③ ...
-④ ...
-⑤ ...
 
-[정답] ④
+[정답] 
 
 [해설]
-해설 내용
-
+내용
 ---
 """
                 try:
@@ -436,7 +425,8 @@ with tab1:
 
                     batch_results.append({"type": qtype, "text": result_text})
                 except Exception as e:
-                    batch_results.append({"type": qtype, "text": f"[오류] 출제 엔진 통신 실패: {e}"})
+                    # 에러 발생 시 숨기지 않고 무조건 텍스트로 저장하여 화면에 띄웁니다!
+                    batch_results.append({"type": qtype, "text": f"[오류] 출제 엔진 통신 실패: {str(e)}"})
 
             progress.progress(1.0, text="✅ 생성 완료!")
 
@@ -453,141 +443,7 @@ with tab1:
             st.session_state.pending = [entry]
             st.rerun()
 
-    if st.session_state.pending:
-        entry = st.session_state.pending[-1]
-        st.markdown("---")
-        st.markdown(f"### 📄 생성 결과 — {entry['major']} > {entry['mid']} > {entry['minor']}")
-
-        for res in entry["results"]:
-            with st.expander(f"📌 [{res['type']}] 유형 문제", expanded=True):
-                raw = res["text"]
-                problems = raw.split("【문제")
-                for prob in problems:
-                    prob = prob.strip()
-                    if not prob or not prob[0].isdigit():
-                        continue
-                    full = "【문제" + prob
-                    parts = {}
-                    tags = ["발문", "보기/지문", "정답", "해설"]
-                    for tag in tags:
-                        key = f"[{tag}]"
-                        if key in full:
-                            start = full.index(key) + len(key)
-                            nexts = [f"[{t}]" for t in tags if f"[{t}]" in full[start:]]
-                            end = full.index(nexts[0], start) if nexts else len(full)
-                            parts[tag] = full[start:end].replace("---", "").strip()
-
-                    st.markdown('<div class="question-box">', unsafe_allow_html=True)
-                    num_part = prob[:10].split("】")[0]
-                    st.markdown(f"**【문제{num_part}】**")
-                    if "발문" in parts:
-                        st.markdown(f"**{parts['발문']}**")
-                    if "보기/지문" in parts:
-                        st.markdown(parts["보기/지문"])
-                    if "정답" in parts:
-                        st.markdown(f'<div class="answer-box">✅ <b>정답:</b> {parts["정답"]}</div>', unsafe_allow_html=True)
-                    if "해설" in parts:
-                        st.markdown("💡 **해설:**")
-                        st.markdown(parts["해설"].replace("\n", "  \n"))
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-        combined = f"[생성 정보]\n단원: {entry['major']} > {entry['mid']} > {entry['minor']}\n난이도: {entry['difficulty']}\n\n"
-        combined += "\n\n" + "="*60 + "\n\n".join(
-            f"【{r['type']} 유형】\n\n{r['text']}" for r in entry["results"]
-        )
-        st.download_button(
-            "⬇️ 생성된 문제 전체 다운로드 (.txt)",
-            data=combined.encode("utf-8"),
-            file_name=f"{entry['major']}_{entry['minor']}_문제.txt",
-            mime="text/plain",
-        )
-
-# ════════════════════════════════════════════════════════
-# TAB 2 : 기출 문제 탐색 
-# ════════════════════════════════════════════════════════
-with tab2:
-    st.markdown("### 기출 문제 탐색")
-
-    fc1, fc2, fc3 = st.columns(3)
-    with fc1:
-        f_major = st.selectbox("대분류 필터", ["전체"] + list(CONCEPTS.keys()), key="f_major")
-    with fc2:
-        all_q_types = sorted(set(q["t"] for q in QUESTIONS if q["t"]))
-        f_type = st.selectbox("문제유형 필터", ["전체"] + all_q_types, key="f_type")
-    with fc3:
-        kw = st.text_input("키워드", placeholder="예) 관계대명사, 현재완료")
-
-    filtered = QUESTIONS
-    if f_major != "전체":
-        filtered = [q for q in filtered if f_major in q["u"]]
-    if f_type != "전체":
-        filtered = [q for q in filtered if q["t"] == f_type]
-    if kw:
-        kl = kw.lower()
-        filtered = [q for q in filtered if kl in q["q"].lower() or kl in q["s"].lower() or kl in q["c"].lower()]
-
-    def render_newlines(text: str) -> str:
-        return text.replace("\n", "  \n")
-
-    st.markdown(f"**검색 결과: {len(filtered)}문제**")
-    for q in filtered[:30]:
-        with st.expander(f"[{q['u']} > {q['s']}] {q['t']} — {q['q'][:60]}"):
-            st.markdown(f"**발문:** {q['q']}")
-            if q["c"]:
-                st.markdown("**보기/지문:**")
-                st.markdown(render_newlines(q["c"]))
-            st.markdown(f'<div class="answer-box">✅ <b>정답:</b> {q["a"]}</div>', unsafe_allow_html=True)
-            if q["e"]:
-                st.markdown("💡 **해설:**")
-                st.markdown(render_newlines(q["e"]))
-    if len(filtered) > 30:
-        st.info("상위 30개만 표시됩니다. 필터를 좁혀 검색하세요.")
-
-# ════════════════════════════════════════════════════════
-# TAB 3 : 생성 기록 
-# ════════════════════════════════════════════════════════
-with tab3:
-    st.markdown("### 생성 기록")
-
-    if not st.session_state.history:
-        st.info("아직 생성된 문제가 없습니다.")
-    else:
-        all_combined = ""
-        for i, h in enumerate(st.session_state.history):
-            all_combined += f"\n{'='*70}\n"
-            all_combined += f"[세트 {i+1}] {h['major']} > {h['mid']} > {h['minor']} | 난이도: {h['difficulty']}\n"
-            all_combined += f"{'='*70}\n\n"
-            for r in h["results"]:
-                all_combined += f"【{r['type']} 유형】\n\n{r['text']}\n\n"
-
-        st.download_button(
-            "⬇️ 전체 생성 기록 통합 다운로드 (.txt)",
-            data=all_combined.encode("utf-8"),
-            file_name="전체_생성문제.txt",
-            mime="text/plain",
-            use_container_width=True,
-        )
-        st.markdown("---")
-
-        for i, h in enumerate(reversed(st.session_state.history)):
-            idx = len(st.session_state.history) - i
-            label = f"세트 {idx} | {h['major']} > {h['minor']} | {', '.join(h['types'])} | 각 {h['count']}문제"
-            with st.expander(label):
-                for r in h["results"]:
-                    st.markdown(f"**▶ {r['type']} 유형**")
-                    st.markdown(r["text"])
-                    st.markdown("---")
-
-                set_text = f"[{h['major']} > {h['mid']} > {h['minor']}] 난이도: {h['difficulty']}\n\n"
-                set_text += "\n\n".join(f"【{r['type']}】\n\n{r['text']}" for r in h["results"])
-                st.download_button(
-                    f"⬇️ 세트 {idx} 다운로드",
-                    data=set_text.encode("utf-8"),
-                    file_name=f"세트{idx}_{h['minor']}.txt",
-                    mime="text/plain",
-                    key=f"dl_set_{idx}",
-                )
-# ── 결과 표시 (에러 은폐 방지 및 고유 ID 적용) ─────────────────────────────────────────
+    # ── 결과 표시 (중복 에러 원천 차단) ─────────────────────────────────────────
     if st.session_state.pending:
         entry = st.session_state.pending[-1]
         st.markdown("---")
@@ -597,16 +453,16 @@ with tab3:
             with st.expander(f"📌 [{res['type']}] 유형 문제", expanded=True):
                 raw = res["text"]
                 
-                # 🚀 1. 통신 에러가 발생하면 숨기지 않고 무조건 붉은 에러창으로 띄움 (핵심 원인 해결)
+                # 통신 에러가 발생하면 붉은 에러창 띄우기
                 if raw.startswith("[오류]"):
                     st.error(raw)
                     continue
                 
                 problems = raw.split("【문제")
                 
-                # 🚀 2. AI가 양식을 어겨서 분리에 실패해도 원본 텍스트를 무조건 보여줌
+                # AI가 양식을 지키지 못했을 때 원본 무조건 보여주기
                 if len(problems) <= 1:
-                    st.warning("⚠️ AI가 괄호 양식(【문제 N】)을 지키지 않았습니다. 아래 원본을 확인해주세요.")
+                    st.warning("⚠️ 양식이 깨졌거나 통신 오류가 발생했습니다. 원본을 확인하세요.")
                     st.markdown(raw.replace("\n", "  \n"))
                     continue
 
@@ -645,7 +501,7 @@ with tab3:
                 if not valid_problem_found:
                     st.markdown(raw.replace("\n", "  \n"))
 
-        # 통합 다운로드 (버튼 ID 중복 에러 해결)
+        # 다운로드 버튼
         combined = f"[생성 정보]\n단원: {entry['major']} > {entry['mid']} > {entry['minor']}\n난이도: {entry['difficulty']}\n\n"
         combined += "\n\n" + "="*60 + "\n\n".join(
             f"【{r['type']} 유형】\n\n{r['text']}" for r in entry["results"]
@@ -655,18 +511,5 @@ with tab3:
             data=combined.encode("utf-8"),
             file_name=f"{entry['major']}_{entry['minor']}_문제.txt",
             mime="text/plain",
-            key=f"dl_pending_{len(st.session_state.history)}"  # 🚀 버튼 고유 ID (에러 방지용)
-        )
-
-# 통합 다운로드
-        combined = f"[생성 정보]\n단원: {entry['major']} > {entry['mid']} > {entry['minor']}\n난이도: {entry['difficulty']}\n\n"
-        combined += "\n\n" + "="*60 + "\n\n".join(
-            f"【{r['type']} 유형】\n\n{r['text']}" for r in entry["results"]
-        )
-        st.download_button(
-            "⬇️ 생성된 문제 전체 다운로드 (.txt)",
-            data=combined.encode("utf-8"),
-            file_name=f"{entry['major']}_{entry['minor']}_문제.txt",
-            mime="text/plain",
-            key=f"dl_pending_{len(st.session_state.history)}"  # 🚀 이 줄이 반드시 들어가야 에러가 사라집니다!
+            key=f"dl_pending_tab1_safe_{len(st.session_state.history)}"
         )
