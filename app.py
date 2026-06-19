@@ -587,3 +587,74 @@ with tab3:
                     mime="text/plain",
                     key=f"dl_set_{idx}",
                 )
+# ── 결과 표시 (안전장치 추가) ─────────────────────────────────────────
+    if st.session_state.pending:
+        entry = st.session_state.pending[-1]
+        st.markdown("---")
+        st.markdown(f"### 📄 생성 결과 — {entry['major']} > {entry['mid']} > {entry['minor']}")
+
+        for res in entry["results"]:
+            with st.expander(f"📌 [{res['type']}] 유형 문제", expanded=True):
+                raw = res["text"]
+                
+                # 🚀 1. 에러 메시지가 반환된 경우 바로 에러 창으로 출력
+                if raw.startswith("[오류]"):
+                    st.error(raw)
+                    continue
+                
+                problems = raw.split("【문제")
+                
+                # 🚀 2. AI가 양식을 안 지켜서 자르기(Split)에 실패한 경우, 숨기지 않고 원본 통째로 출력
+                if len(problems) <= 1:
+                    st.warning("⚠️ AI가 지정된 괄호 양식(【문제 N】)을 지키지 않았습니다. 아래 원본을 확인해주세요.")
+                    st.markdown(raw.replace("\n", "  \n"))
+                    continue
+
+                # 3. 정상 파싱 로직
+                valid_problem_found = False
+                for prob in problems:
+                    prob = prob.strip()
+                    if not prob or not prob[0].isdigit():
+                        continue
+                    
+                    valid_problem_found = True
+                    full = "【문제" + prob
+                    parts = {}
+                    tags = ["발문", "보기/지문", "정답", "해설"]
+                    for tag in tags:
+                        key = f"[{tag}]"
+                        if key in full:
+                            start = full.index(key) + len(key)
+                            nexts = [f"[{t}]" for t in tags if f"[{t}]" in full[start:]]
+                            end = full.index(nexts[0], start) if nexts else len(full)
+                            parts[tag] = full[start:end].replace("---", "").strip()
+
+                    st.markdown('<div class="question-box">', unsafe_allow_html=True)
+                    num_part = prob[:10].split("】")[0]
+                    st.markdown(f"**【문제{num_part}】**")
+                    if "발문" in parts:
+                        st.markdown(f"**{parts['발문']}**")
+                    if "보기/지문" in parts:
+                        st.markdown(parts["보기/지문"])
+                    if "정답" in parts:
+                        st.markdown(f'<div class="answer-box">✅ <b>정답:</b> {parts["정답"]}</div>', unsafe_allow_html=True)
+                    if "해설" in parts:
+                        st.markdown("💡 **해설:**")
+                        st.markdown(parts["해설"].replace("\n", "  \n"))
+                    st.markdown('</div>', unsafe_allow_html=True)
+                
+                # 🚀 4. 파싱은 시도했는데 조건에 맞는 텍스트가 없어 숨겨진 경우 대비
+                if not valid_problem_found:
+                    st.markdown(raw.replace("\n", "  \n"))
+
+        # 통합 다운로드
+        combined = f"[생성 정보]\n단원: {entry['major']} > {entry['mid']} > {entry['minor']}\n난이도: {entry['difficulty']}\n\n"
+        combined += "\n\n" + "="*60 + "\n\n".join(
+            f"【{r['type']} 유형】\n\n{r['text']}" for r in entry["results"]
+        )
+        st.download_button(
+            "⬇️ 생성된 문제 전체 다운로드 (.txt)",
+            data=combined.encode("utf-8"),
+            file_name=f"{entry['major']}_{entry['minor']}_문제.txt",
+            mime="text/plain",
+        )
