@@ -253,23 +253,43 @@ with tab1:
         mid_list = list(CONCEPTS[selected_major].keys()) if CONCEPTS and selected_major in CONCEPTS else ["데이터 없음"]
         selected_mid = st.selectbox("② 중분류", mid_list, key="mid")
 
-        minor_items = CONCEPTS[selected_major][selected_mid] if CONCEPTS and selected_major in CONCEPTS and selected_mid in CONCEPTS[selected_major] else []
-        minor_labels = [item["minor"] for item in minor_items if item["minor"]]
+minor_items = CONCEPTS[selected_major][selected_mid] if CONCEPTS and selected_major in CONCEPTS and selected_mid in CONCEPTS[selected_major] else []
+        
+        # 🚀 수정됨: '통합개념'을 리스트 맨 앞에 강제 삽입하여 기본값으로 만듦
+        minor_labels = ["통합개념"] + [item["minor"] for item in minor_items if item["minor"]] if minor_items else []
         
         if minor_labels:
             selected_minor_label = st.selectbox("③ 소분류", minor_labels, key="minor")
-            selected_item = next((x for x in minor_items if x["minor"] == selected_minor_label), None)
-            if selected_item:
-                diff = selected_item["difficulty"]
-                diff_class = f"diff-{diff}" if diff else ""
-                st.markdown(f'④ 개념의 난이도: <span class="diff-badge {diff_class}">{diff if diff else "미분류"}</span>', unsafe_allow_html=True)
-                if selected_item.get("point"):
-                    with st.expander("💡 출제 포인트 보기"):
-                        st.markdown(selected_item["point"])
+            
+            # [통합개념]이 선택되었을 때의 처리
+            if selected_minor_label == "통합개념":
+                diff = "통합"
+                # 해당 중분류 아래의 모든 소분류 출제 포인트를 하나로 길게 합침
+                point_text = "\n\n".join([f"[{x['minor']}]\n{x.get('point', '')}" for x in minor_items if x.get("point")])
+                
+                st.markdown(f'④ 개념의 난이도: <span class="diff-badge diff-중상">통합 출제</span>', unsafe_allow_html=True)
+                with st.expander("💡 통합 출제 포인트 보기"):
+                    st.markdown(point_text)
+                    
+            # [특정 단일 개념]이 선택되었을 때의 처리 (기존과 동일)
+            else:
+                selected_item = next((x for x in minor_items if x["minor"] == selected_minor_label), None)
+                if selected_item:
+                    diff = selected_item["difficulty"]
+                    diff_class = f"diff-{diff}" if diff else ""
+                    point_text = selected_item.get("point", "")
+                    
+                    st.markdown(f'④ 개념의 난이도: <span class="diff-badge {diff_class}">{diff if diff else "미분류"}</span>', unsafe_allow_html=True)
+                    if point_text:
+                        with st.expander("💡 출제 포인트 보기"):
+                            st.markdown(point_text)
+                else:
+                    diff = ""
+                    point_text = ""
         else:
             selected_minor_label = ""
-            selected_item = None
             diff = ""
+            point_text = ""
 
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -365,8 +385,10 @@ with tab1:
                     for i, q in enumerate(ref_samples)
                 ])
 
-                point_text = selected_item.get("point", "") if selected_item else ""
-
+# 🚀 수정됨: Scheme B 로직 (통합개념일 경우 AI에게 강력한 골고루 출제 지시 추가)
+                integration_rule = ""
+                if selected_minor_label == "통합개념":
+                    integration_rule = "7. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 여러 출제 포인트들을 반드시 골고루 활용하여 문제를 창작하세요. 한 문제 안에 여러 개념을 섞어도 좋고, 각 문제마다 다른 개념을 사용해도 좋습니다. 절대 특정 한두 가지 개념에만 편중되어 출제하지 마세요.\n"
                 prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
 
 === [역할 A] 기출문제 벤치마킹 ===
