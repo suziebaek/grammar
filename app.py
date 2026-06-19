@@ -143,10 +143,6 @@ ALL_TYPES = sorted(set(q["t"] for q in QUESTIONS if q["t"]))
 SORTED_TYPES = [t for t in PRIMARY_TYPES if t in ALL_TYPES] + \
                [t for t in ALL_TYPES if t not in PRIMARY_TYPES]
 
-# 🚀 파이썬이 데이터를 어떻게 읽었는지 직접 확인하는 디버그 뷰 추가
-with st.sidebar:
-    with st.expander("🛠️ 데이터 매핑 디버그 확인"):
-        st.write(TYPE_DIFF_MAP)
 
 # ── CSS ──────────────────────────────────────────────────
 st.markdown("""
@@ -249,23 +245,18 @@ with tab1:
 
         minor_items = CONCEPTS[selected_major][selected_mid] if CONCEPTS and selected_major in CONCEPTS and selected_mid in CONCEPTS[selected_major] else []
         
-        # 🚀 수정됨: '통합개념'을 리스트 맨 앞에 강제 삽입하여 기본값으로 만듦
         minor_labels = ["통합개념"] + [item["minor"] for item in minor_items if item["minor"]] if minor_items else []
         
         if minor_labels:
             selected_minor_label = st.selectbox("③ 소분류", minor_labels, key="minor")
             
-            # [통합개념]이 선택되었을 때의 처리
             if selected_minor_label == "통합개념":
                 diff = "통합"
-                # 해당 중분류 아래의 모든 소분류 출제 포인트를 하나로 길게 합침
                 point_text = "\n\n".join([f"[{x['minor']}]\n{x.get('point', '')}" for x in minor_items if x.get("point")])
                 
                 st.markdown(f'④ 개념의 난이도: <span class="diff-badge diff-중상">통합 출제</span>', unsafe_allow_html=True)
                 with st.expander("💡 통합 출제 포인트 보기"):
                     st.markdown(point_text)
-                    
-            # [특정 단일 개념]이 선택되었을 때의 처리 (기존과 동일)
             else:
                 selected_item = next((x for x in minor_items if x["minor"] == selected_minor_label), None)
                 if selected_item:
@@ -295,7 +286,7 @@ with tab1:
             label_visibility="collapsed",
         )
 
-with col_right:
+    with col_right:
         st.markdown("### 📋 문제 유형 & 개수")
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
         st.markdown("**문제 유형 선택 (복수 가능)**")
@@ -324,8 +315,7 @@ with col_right:
                 st.markdown(f"- {t} × {num_per_type}문제")
             st.markdown(f"**→ 총 {len(selected_types) * num_per_type}문제**")
             
-# ── 생성 버튼 ─────────────────────────────────────────
-    # 🚨 주의: 이 부분부터는 with col_right: 밖으로 빠져나와야 하므로 들여쓰기가 딱 4칸이어야 합니다!
+    # ── 생성 버튼 ─────────────────────────────────────────
     st.markdown("---")
     gen_col1, gen_col2 = st.columns([3, 1])
     with gen_col1:
@@ -336,6 +326,7 @@ with col_right:
     if clear_btn:
         st.session_state.pending = []
         st.rerun()
+
 
     # ── 생성 실행 ─────────────────────────────────────────
     if generate_btn:
