@@ -245,6 +245,33 @@ st.markdown("""
     padding: 0.55rem 1.5rem; font-size: 0.95rem; font-weight: 600;
   }
   .stButton > button:hover { opacity: 0.9; }
+/* 🚀 [추가] 멀티셀렉트 칩(선택된 항목) 개별 컬러코딩 강제 주입 */
+  
+  /* [상] 난이도 칩: 빨간색 배경 */
+  div[data-baseweb="select"] span[data-baseweb="tag"]:has(span:contains("[상]")) {
+      background-color: #fef2f2 !important; /* 연한 빨강 배경 */
+      border: 1px solid #f87171 !important; /* 빨강 테두리 */
+      color: #b91c1c !important; /* 진한 빨강 글씨 */
+  }
+
+  /* [중] 난이도 칩: 파란색 배경 */
+  div[data-baseweb="select"] span[data-baseweb="tag"]:has(span:contains("[중]")) {
+      background-color: #eff6ff !important; /* 연한 파랑 배경 */
+      border: 1px solid #60a5fa !important; /* 파랑 테두리 */
+      color: #1d4ed8 !important; /* 진한 파랑 글씨 */
+  }
+
+  /* [하] 난이도 칩: 녹색 배경 */
+  div[data-baseweb="select"] span[data-baseweb="tag"]:has(span:contains("[하]")) {
+      background-color: #f0fdf4 !important; /* 연한 녹색 배경 */
+      border: 1px solid #4ade80 !important; /* 녹색 테두리 */
+      color: #15803d !important; /* 진한 녹색 글씨 */
+  }
+
+  /* 칩 안에 있는 둥근 점(아이콘) 숨기기 (선택 사항 - 깔끔하게 글자만 보이게 함) */
+  div[data-baseweb="select"] span[data-baseweb="tag"] svg {
+      display: none !important;
+  }
 </style>
 """, unsafe_allow_html=True)
 
