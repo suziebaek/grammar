@@ -83,7 +83,8 @@ def load_gsheets_dual_db(q_url, c_url):
                 "q": str(row.get('발문', '')).strip(),
                 "c": str(row.get('보기', '')).strip(),
                 "a": str(row.get('정답', '')).strip(),
-                "e": str(row.get('해설', '')).strip()
+                "e": str(row.get('해설', '')).strip(),
+                "d": q_diff  # 🎯 [핵심] 이 줄이 반드시 들어가야 파이썬이 난이도를 기억합니다!
             })
 
         # 2. 'concept_hierarchy' 탭 파싱
