@@ -59,10 +59,13 @@ def load_gsheets_dual_db(q_url, c_url):
             st.error("🚨 기출DB를 제대로 읽어오지 못했습니다. 구글 시트의 공유 권한이 '링크가 있는 모든 사용자(뷰어)'인지 확인해 주세요.")
             return [], {}
 # 🚀 [추가] H열(8번째 열, 인덱스 7) 컬럼명을 동적으로 가져옵니다. (이름이 바뀌어도 작동)
-        diff_col_name = df_questions.columns[7] if len(df_questions.columns) > 7 else None
-
+        diff_col_name = None
+        for col in df_questions.columns:
+            if '난이도' in col:
+                diff_col_name = col
+                break
+                
         # 1. 'questions_db' 탭 파싱
-# 1. 'questions_db' 탭 파싱
         questions_pool = []
         for _, row in df_questions.iterrows():
             q_type = str(row.get('문제유형', '')).strip()
