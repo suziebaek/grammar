@@ -132,27 +132,7 @@ with st.sidebar:
 # ── DB 할당 (구글 시트 단일 모드) ──
 QUESTIONS, CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
     
-# 🚀 꼬였던 매핑 로직을 직관적이고 확실하게 수정
-TYPE_DIFF_MAP = {}
-for q in QUESTIONS:
-    t = q.get("t", "")
-    d = q.get("d", "")
-    if not t: continue
-    
-    # "상", "중", "하" 값이 있으면 무조건 최우선으로 덮어씁니다!
-    if d in ["상", "중", "하"]:
-        TYPE_DIFF_MAP[t] = d
-    # 아직 이 유형이 딕셔너리에 없으면 일단 빈칸으로 만들어 둡니다.
-    elif t not in TYPE_DIFF_MAP:
-        TYPE_DIFF_MAP[t] = ""
 
-# 드롭다운 라벨 포맷팅
-def format_type_label(t):
-    diff = TYPE_DIFF_MAP.get(t, "")
-    if diff == "상": return f"🔴 {t} [상]"
-    elif diff == "중": return f"🔵 {t} [중]"
-    elif diff == "하": return f"🟢 {t} [하]"
-    return f"⚪ {t}"
 
 PRIMARY_TYPES = [
     "어법상 맞는 것", "어법상 옳은 것", "어법상 옳지 않은 것",
@@ -218,39 +198,6 @@ st.markdown("""
     padding: 0.55rem 1.5rem; font-size: 0.95rem; font-weight: 600;
   }
   .stButton > button:hover { opacity: 0.9; }
-/* 🚀 [추가] 멀티셀렉트 칩(선택된 항목) 개별 컬러코딩 강제 주입 */
-  
-/* [상] 난이도 칩: 빨간색 */
-  div[data-baseweb="select"] span[data-baseweb="tag"]:has([title*="[상]"]),
-  div[data-baseweb="select"] span[data-baseweb="tag"]:has([aria-label*="[상]"]) {
-      background-color: #fee2e2 !important;
-      border: 1px solid #f87171 !important;
-  }
-  div[data-baseweb="select"] span[data-baseweb="tag"]:has([title*="[상]"]) *,
-  div[data-baseweb="select"] span[data-baseweb="tag"]:has([aria-label*="[상]"]) * {
-      color: #991b1b !important;
-  }
-
-  /* [중] 난이도 칩: 파란색 */
-  div[data-baseweb="select"] span[data-baseweb="tag"]:has([title*="[중]"]),
-  div[data-baseweb="select"] span[data-baseweb="tag"]:has([aria-label*="[중]"]) {
-      background-color: #dbeafe !important;
-      border: 1px solid #60a5fa !important;
-  }
-  div[data-baseweb="select"] span[data-baseweb="tag"]:has([title*="[중]"]) *,
-  div[data-baseweb="select"] span[data-baseweb="tag"]:has([aria-label*="[중]"]) * {
-      color: #1e40af !important;
-  }
-
-  /* [하] 난이도 칩: 녹색 */
-  div[data-baseweb="select"] span[data-baseweb="tag"]:has([title*="[하]"]),
-  div[data-baseweb="select"] span[data-baseweb="tag"]:has([aria-label*="[하]"]) {
-      background-color: #dcfce7 !important;
-      border: 1px solid #4ade80 !important;
-  }
-  div[data-baseweb="select"] span[data-baseweb="tag"]:has([title*="[하]"]) *,
-  div[data-baseweb="select"] span[data-baseweb="tag"]:has([aria-label*="[하]"]) * {
-      color: #166534 !important;
   }
 </style>
 """, unsafe_allow_html=True)
@@ -348,7 +295,7 @@ with tab1:
             label_visibility="collapsed",
         )
 
-    with col_right:
+   with col_right:
         st.markdown("### 📋 문제 유형 & 개수")
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
         st.markdown("**문제 유형 선택 (복수 가능)**")
@@ -359,12 +306,11 @@ with tab1:
             "유형",
             SORTED_TYPES,
             default=safe_default,
-            format_func=format_type_label, # 🚀 [핵심] 여기서 🔴🔵🟢 아이콘이 드롭다운에 입혀집니다!
             label_visibility="collapsed",
         )
 
         st.markdown("**유형별 생성 개수**")
-        num_per_type = st.slider("개수", 1, 10, 5)
+        num_per_type = st.slider("개수", 1, 10, 1)
         st.markdown('</div>', unsafe_allow_html=True)
 
         ref_pool = [q for q in QUESTIONS if selected_major in q["u"] or selected_mid in q.get("s","")]
@@ -372,26 +318,12 @@ with tab1:
             ref_pool = QUESTIONS
         st.info(f"📎 참고 기출: {len(ref_pool)}문제 ('{selected_major}' 관련)")
 
-        # 🚀 [수정] HTML을 적용하여 하단 요약 화면에도 완벽한 컬러코딩 텍스트 표시
         if selected_types:
             st.markdown("**생성 예정**")
             for t in selected_types:
-                diff = TYPE_DIFF_MAP.get(t, "")
-                # 지정된 상(빨강), 중(파랑), 하(녹색) CSS 텍스트 적용
-                if diff == "상":
-                    icon_html = '<span style="color:#ef4444; font-weight:bold;">🔴 [상]</span>'
-                elif diff == "중":
-                    icon_html = '<span style="color:#3b82f6; font-weight:bold;">🔵 [중]</span>'
-                elif diff == "하":
-                    icon_html = '<span style="color:#22c55e; font-weight:bold;">🟢 [하]</span>'
-                else:
-                    icon_html = '<span style="color:#9ca3af; font-weight:bold;">⚪ [미분류]</span>' # Fallback
-                
-                # HTML을 안전하게 허용하여 렌더링
-                st.markdown(f"- {icon_html} **{t}** × {num_per_type}문제", unsafe_allow_html=True)
-                
+                st.markdown(f"- {t} × {num_per_type}문제")
             st.markdown(f"**→ 총 {len(selected_types) * num_per_type}문제**")
-
+            
     # ── 생성 버튼 ─────────────────────────────────────────
     st.markdown("---")
     gen_col1, gen_col2 = st.columns([3, 1])
