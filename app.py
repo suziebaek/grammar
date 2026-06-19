@@ -62,19 +62,21 @@ def load_gsheets_dual_db(q_url, c_url):
         diff_col_name = df_questions.columns[7] if len(df_questions.columns) > 7 else None
 
         # 1. 'questions_db' 탭 파싱
+# 1. 'questions_db' 탭 파싱
         questions_pool = []
         for _, row in df_questions.iterrows():
             q_type = str(row.get('문제유형', '')).strip()
             if not q_type:
                 continue
                 
-            # 🚀 [추가] H열에서 난이도 값을 추출 (없으면 기존 '난이도' 컬럼명에서 탐색, 모두 없으면 빈칸)
+            # 🚀 [수정됨] 무조건 '난이도'라는 열 이름부터 찾도록 순서를 바꿈!
             q_diff = ""
-            if diff_col_name:
-                q_diff = str(row.get(diff_col_name, '')).strip()
-            if not q_diff and '난이도' in df_questions.columns:
+            if '난이도' in df_questions.columns:
                 q_diff = str(row.get('난이도', '')).strip()
-                
+            elif diff_col_name:
+                q_diff = str(row.get(diff_col_name, '')).strip()
+
+            questions_pool.append({
             questions_pool.append({
                 "u": str(row.get('대분류', '')).strip(),
                 "s": str(row.get('소분류', '')).strip(),
