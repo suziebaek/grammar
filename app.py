@@ -253,7 +253,7 @@ with tab1:
         mid_list = list(CONCEPTS[selected_major].keys()) if CONCEPTS and selected_major in CONCEPTS else ["데이터 없음"]
         selected_mid = st.selectbox("② 중분류", mid_list, key="mid")
 
-minor_items = CONCEPTS[selected_major][selected_mid] if CONCEPTS and selected_major in CONCEPTS and selected_mid in CONCEPTS[selected_major] else []
+        minor_items = CONCEPTS[selected_major][selected_mid] if CONCEPTS and selected_major in CONCEPTS and selected_mid in CONCEPTS[selected_major] else []
         
         # 🚀 수정됨: '통합개념'을 리스트 맨 앞에 강제 삽입하여 기본값으로 만듦
         minor_labels = ["통합개념"] + [item["minor"] for item in minor_items if item["minor"]] if minor_items else []
