@@ -324,7 +324,8 @@ with col_right:
                 st.markdown(f"- {t} × {num_per_type}문제")
             st.markdown(f"**→ 총 {len(selected_types) * num_per_type}문제**")
             
-    # ── 생성 버튼 ─────────────────────────────────────────
+# ── 생성 버튼 ─────────────────────────────────────────
+    # 🚨 주의: 이 부분부터는 with col_right: 밖으로 빠져나와야 하므로 들여쓰기가 딱 4칸이어야 합니다!
     st.markdown("---")
     gen_col1, gen_col2 = st.columns([3, 1])
     with gen_col1:
