@@ -300,20 +300,40 @@ with tab1:
             label_visibility="collapsed",
         )
 
-        st.markdown("**유형별 생성 개수**")
-        num_per_type = st.slider("개수", 1, 10, 1)
+        # ────────────────────────────────────────────────────────
+        # 🚀 기존 슬라이더 제거 및 '난이도 배정' 더미 콘솔 추가
+        st.markdown("---")
+        st.markdown("**📊 난이도 배정 (준비 중)**")
+        
+        # 1. 자동/수동 모드 토글
+        st.toggle("🔄 자동 / 수동 모드 설정", value=True, key="dummy_auto_mode")
+        
+        # 2. 상/중/하 활성화 토글 (시각적 버튼 역할)
+        st.caption("난이도 활성화")
+        btn_col1, btn_col2, btn_col3 = st.columns(3)
+        with btn_col1: st.toggle("🔴 상", value=True, key="dummy_btn_high")
+        with btn_col2: st.toggle("🔵 중", value=True, key="dummy_btn_mid")
+        with btn_col3: st.toggle("🟢 하", value=True, key="dummy_btn_low")
+        
+        # 3. 상/중/하 숫자 입력창 (더미)
+        st.caption("문항 수 할당")
+        num_col1, num_col2, num_col3 = st.columns(3)
+        with num_col1: st.number_input("상 (개)", min_value=0, max_value=10, value=3, key="dummy_num_high")
+        with num_col2: st.number_input("중 (개)", min_value=0, max_value=10, value=4, key="dummy_num_mid")
+        with num_col3: st.number_input("하 (개)", min_value=0, max_value=10, value=3, key="dummy_num_low")
+
+        # 🚨 생성 개수를 내부적으로 10으로 강제 고정 (앱 동작 에러 방지용)
+        num_per_type = 10 
+        # ────────────────────────────────────────────────────────
+
         st.markdown('</div>', unsafe_allow_html=True)
 
         ref_pool = [q for q in QUESTIONS if selected_major in q["u"] or selected_mid in q.get("s","")]
         if not ref_pool:
             ref_pool = QUESTIONS
         st.info(f"📎 참고 기출: {len(ref_pool)}문제 ('{selected_major}' 관련)")
-
-        if selected_types:
-            st.markdown("**생성 예정**")
-            for t in selected_types:
-                st.markdown(f"- {t} × {num_per_type}문제")
-            st.markdown(f"**→ 총 {len(selected_types) * num_per_type}문제**")
+        
+        # 🚀 불필요해진 '생성 예정' 출력 창 완벽히 삭제 완료!
             
     # ── 생성 버튼 ─────────────────────────────────────────
     st.markdown("---")
