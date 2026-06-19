@@ -587,7 +587,7 @@ with tab3:
                     mime="text/plain",
                     key=f"dl_set_{idx}",
                 )
-# ── 결과 표시 (안전장치 추가) ─────────────────────────────────────────
+# ── 결과 표시 (에러 은폐 방지 및 고유 ID 적용) ─────────────────────────────────────────
     if st.session_state.pending:
         entry = st.session_state.pending[-1]
         st.markdown("---")
@@ -597,20 +597,19 @@ with tab3:
             with st.expander(f"📌 [{res['type']}] 유형 문제", expanded=True):
                 raw = res["text"]
                 
-                # 🚀 1. 에러 메시지가 반환된 경우 바로 에러 창으로 출력
+                # 🚀 1. 통신 에러가 발생하면 숨기지 않고 무조건 붉은 에러창으로 띄움 (핵심 원인 해결)
                 if raw.startswith("[오류]"):
                     st.error(raw)
                     continue
                 
                 problems = raw.split("【문제")
                 
-                # 🚀 2. AI가 양식을 안 지켜서 자르기(Split)에 실패한 경우, 숨기지 않고 원본 통째로 출력
+                # 🚀 2. AI가 양식을 어겨서 분리에 실패해도 원본 텍스트를 무조건 보여줌
                 if len(problems) <= 1:
-                    st.warning("⚠️ AI가 지정된 괄호 양식(【문제 N】)을 지키지 않았습니다. 아래 원본을 확인해주세요.")
+                    st.warning("⚠️ AI가 괄호 양식(【문제 N】)을 지키지 않았습니다. 아래 원본을 확인해주세요.")
                     st.markdown(raw.replace("\n", "  \n"))
                     continue
 
-                # 3. 정상 파싱 로직
                 valid_problem_found = False
                 for prob in problems:
                     prob = prob.strip()
@@ -643,9 +642,21 @@ with tab3:
                         st.markdown(parts["해설"].replace("\n", "  \n"))
                     st.markdown('</div>', unsafe_allow_html=True)
                 
-                # 🚀 4. 파싱은 시도했는데 조건에 맞는 텍스트가 없어 숨겨진 경우 대비
                 if not valid_problem_found:
                     st.markdown(raw.replace("\n", "  \n"))
+
+        # 통합 다운로드 (버튼 ID 중복 에러 해결)
+        combined = f"[생성 정보]\n단원: {entry['major']} > {entry['mid']} > {entry['minor']}\n난이도: {entry['difficulty']}\n\n"
+        combined += "\n\n" + "="*60 + "\n\n".join(
+            f"【{r['type']} 유형】\n\n{r['text']}" for r in entry["results"]
+        )
+        st.download_button(
+            "⬇️ 생성된 문제 전체 다운로드 (.txt)",
+            data=combined.encode("utf-8"),
+            file_name=f"{entry['major']}_{entry['minor']}_문제.txt",
+            mime="text/plain",
+            key=f"dl_pending_{len(st.session_state.history)}"  # 🚀 버튼 고유 ID (에러 방지용)
+        )
 
 # 통합 다운로드
         combined = f"[생성 정보]\n단원: {entry['major']} > {entry['mid']} > {entry['minor']}\n난이도: {entry['difficulty']}\n\n"
