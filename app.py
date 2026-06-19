@@ -37,31 +37,29 @@ def load_json_db():
 @st.cache_data(ttl=180)
 def load_gsheets_dual_db(q_url, c_url):
     try:
-        # 구글 시트 웹 URL을 데이터 다운로드용(CSV) API 주소로 변환하는 마법의 함수
         def convert_to_csv_url(url):
             return url.replace("/edit#gid=", "/export?format=csv&gid=").replace("/edit?usp=sharing", "/export?format=csv")
 
-        # Pandas로 다이렉트 로드 (별도 라이브러리 인증 불필요)
         df_questions = pd.read_csv(convert_to_csv_url(q_url)).fillna('')
         df_concepts = pd.read_csv(convert_to_csv_url(c_url)).fillna('')
         
-        # 1. 'questions_db' 탭 파싱
+        # 1. 'questions_db' 탭 파싱 (괄호 뺀 정확한 컬럼명 매칭)
         questions_pool = []
         for _, row in df_questions.iterrows():
-            q_type = str(row.get('문제유형(t)', '')).strip()
+            q_type = str(row.get('문제유형', '')).strip()
             if not q_type:
                 continue
             questions_pool.append({
-                "u": str(row.get('대분류(u)', '')).strip(),
-                "s": str(row.get('소분류(s)', '')).strip(),
+                "u": str(row.get('대분류', '')).strip(),
+                "s": str(row.get('소분류', '')).strip(),
                 "t": q_type,
-                "q": str(row.get('발문(q)', '')).strip(),
-                "c": str(row.get('보기(c)', '')).strip(),
-                "a": str(row.get('정답(a)', '')).strip(),
-                "e": str(row.get('해설(e)', '')).strip()
+                "q": str(row.get('발문', '')).strip(),
+                "c": str(row.get('보기', '')).strip(),
+                "a": str(row.get('정답', '')).strip(),
+                "e": str(row.get('해설', '')).strip()
             })
 
-        # 2. 'concept_hierarchy' 탭 파싱
+        # 2. 'concept_hierarchy' 탭 파싱 (괄호 뺀 정확한 컬럼명 매칭)
         concepts_hierarchy = {}
         for _, row in df_concepts.iterrows():
             major = str(row.get('대분류', '')).strip()
