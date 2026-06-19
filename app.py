@@ -598,4 +598,12 @@ with tab3:
                     st.markdown("---")
 
                 # 이 세트 개별 다운로드
-                set_text = f"[{h['major']} >
+                set_text = f"[{h['major']} > {h['mid']} > {h['minor']}] 난이도: {h['difficulty']}\n\n"
+                set_text += "\n\n".join(f"【{r['type']}】\n\n{r['text']}" for r in h["results"])
+                st.download_button(
+                    f"⬇️ 세트 {idx} 다운로드",
+                    data=set_text.encode("utf-8"),
+                    file_name=f"세트{idx}_{h['minor']}.txt",
+                    mime="text/plain",
+                    key=f"dl_history_set_{idx}",  # 🚀 중복 방지 고유 키
+                )
