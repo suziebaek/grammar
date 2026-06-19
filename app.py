@@ -33,17 +33,33 @@ def load_json_db():
     except:
         return [], {}
 
-# [모드 2] 멀티 탭 구글 시트 다이렉트 로드 (400 에러 원천 차단)
+import re # 함수 위에 이 줄이 없다면 추가해 주세요 (파일 맨 위에 두셔도 됩니다)
+
+# [모드 2] 멀티 탭 구글 시트 다이렉트 로드 (400 에러 원천 차단 및 정규식 추출)
 @st.cache_data(ttl=180)
 def load_gsheets_dual_db(q_url, c_url):
     try:
+        # 🚀 무적의 URL 변환기: 어떤 복잡한 구글 시트 주소를 넣어도 고유 ID와 GID만 쏙 뽑아냄
         def convert_to_csv_url(url):
-            return url.replace("/edit#gid=", "/export?format=csv&gid=").replace("/edit?usp=sharing", "/export?format=csv")
+            sheet_id_match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
+            gid_match = re.search(r'gid=([0-9]+)', url)
+            
+            if sheet_id_match:
+                sheet_id = sheet_id_match.group(1)
+                gid = gid_match.group(1) if gid_match else "0"
+                return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+            return url
 
+        # 판다스로 CSV 직접 읽기
         df_questions = pd.read_csv(convert_to_csv_url(q_url)).fillna('')
         df_concepts = pd.read_csv(convert_to_csv_url(c_url)).fillna('')
         
-        # 1. 'questions_db' 탭 파싱 (괄호 뺀 정확한 컬럼명 매칭)
+        # 🚨 [디버깅 안전장치] 만약 다운받은 데이터에 '대분류'가 없다면 조용히 넘어가지 않고 에러 발생
+        if '대분류' not in df_questions.columns:
+            st.error("🚨 기출DB를 제대로 읽어오지 못했습니다. 구글 시트의 공유 권한이 '링크가 있는 모든 사용자(뷰어)'인지 확인해 주세요.")
+            return [], {}
+
+        # 1. 'questions_db' 탭 파싱
         questions_pool = []
         for _, row in df_questions.iterrows():
             q_type = str(row.get('문제유형', '')).strip()
@@ -59,7 +75,7 @@ def load_gsheets_dual_db(q_url, c_url):
                 "e": str(row.get('해설', '')).strip()
             })
 
-        # 2. 'concept_hierarchy' 탭 파싱 (괄호 뺀 정확한 컬럼명 매칭)
+        # 2. 'concept_hierarchy' 탭 파싱
         concepts_hierarchy = {}
         for _, row in df_concepts.iterrows():
             major = str(row.get('대분류', '')).strip()
@@ -82,7 +98,7 @@ def load_gsheets_dual_db(q_url, c_url):
             
         return questions_pool, concepts_hierarchy
     except Exception as e:
-        st.error(f"🚨 구글 시트 다이렉트 로드 실패: {e}")
+        st.error(f"🚨 데이터 로드 중 치명적 오류 발생: {e}")
         return [], {}
 
 # ── 사이드바 ───────────────────────────────────────────────────
