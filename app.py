@@ -36,35 +36,33 @@ def load_json_db():
 import re # 함수 위에 이 줄이 없다면 추가해 주세요 (파일 맨 위에 두셔도 됩니다)
 
 # [모드 2] 멀티 탭 구글 시트 다이렉트 로드 (400 에러 원천 차단 및 정규식 추출)
+# [모드 2] 멀티 탭 구글 시트 다이렉트 로드 (완전 정제된 파싱 로직)
 @st.cache_data(ttl=180)
 def load_gsheets_dual_db(q_url, c_url):
     try:
-        # 🚀 무적의 URL 변환기: 어떤 복잡한 구글 시트 주소를 넣어도 고유 ID와 GID만 쏙 뽑아냄
         def convert_to_csv_url(url):
             sheet_id_match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
             gid_match = re.search(r'gid=([0-9]+)', url)
-            
             if sheet_id_match:
                 sheet_id = sheet_id_match.group(1)
                 gid = gid_match.group(1) if gid_match else "0"
                 return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
             return url
 
-        # 판다스로 CSV 직접 읽기
         df_questions = pd.read_csv(convert_to_csv_url(q_url)).fillna('')
         df_concepts = pd.read_csv(convert_to_csv_url(c_url)).fillna('')
         
-        # 🚨 [디버깅 안전장치] 만약 다운받은 데이터에 '대분류'가 없다면 조용히 넘어가지 않고 에러 발생
+        # 🚀 열 이름의 앞뒤 공백을 완벽하게 제거
+        df_questions.columns = [str(c).strip() for c in df_questions.columns]
+        df_concepts.columns = [str(c).strip() for c in df_concepts.columns]
+        
         if '대분류' not in df_questions.columns:
-            st.error("🚨 기출DB를 제대로 읽어오지 못했습니다. 구글 시트의 공유 권한이 '링크가 있는 모든 사용자(뷰어)'인지 확인해 주세요.")
+            st.error("🚨 기출DB를 제대로 읽어오지 못했습니다. 구글 시트 공유 권한을 확인해 주세요.")
             return [], {}
-# 🚀 [추가] H열(8번째 열, 인덱스 7) 컬럼명을 동적으로 가져옵니다. (이름이 바뀌어도 작동)
-        diff_col_name = None
-        for col in df_questions.columns:
-            if '난이도' in col:
-                diff_col_name = col
-                break
-                
+
+        # 🚀 '난이도'라는 단어가 포함된 열을 정확히 찾아냅니다.
+        diff_col = next((col for col in df_questions.columns if '난이도' in col), None)
+
         # 1. 'questions_db' 탭 파싱
         questions_pool = []
         for _, row in df_questions.iterrows():
@@ -72,12 +70,13 @@ def load_gsheets_dual_db(q_url, c_url):
             if not q_type:
                 continue
                 
-            # 🚀 [수정됨] 무조건 '난이도'라는 열 이름부터 찾도록 순서를 바꿈!
+            # 난이도 값 안전하게 추출
             q_diff = ""
-            if '난이도' in df_questions.columns:
-                q_diff = str(row.get('난이도', '')).strip()
-            elif diff_col_name:
-                q_diff = str(row.get(diff_col_name, '')).strip()
+            if diff_col:
+                val = str(row.get(diff_col, '')).strip()
+                if "상" in val: q_diff = "상"
+                elif "중" in val: q_diff = "중"
+                elif "하" in val: q_diff = "하"
 
             questions_pool.append({
                 "u": str(row.get('대분류', '')).strip(),
@@ -87,7 +86,7 @@ def load_gsheets_dual_db(q_url, c_url):
                 "c": str(row.get('보기', '')).strip(),
                 "a": str(row.get('정답', '')).strip(),
                 "e": str(row.get('해설', '')).strip(),
-                "d": q_diff  # 🎯 [핵심] 이 줄이 반드시 들어가야 파이썬이 난이도를 기억합니다!
+                "d": q_diff  # 난이도 저장 완벽 보장
             })
 
         # 2. 'concept_hierarchy' 탭 파싱
@@ -160,25 +159,27 @@ if db_mode == "로컬 JSON (Internal)":
 else:
     QUESTIONS, CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
     
-# 🚀 [추가] 문제 유형(t)별 난이도(d) 매핑 테이블 생성
+# 🚀 꼬였던 매핑 로직을 직관적이고 확실하게 수정
 TYPE_DIFF_MAP = {}
 for q in QUESTIONS:
     t = q.get("t", "")
     d = q.get("d", "")
-    # 상/중/하 값이 명확한 경우를 우선적으로 저장합니다.
-    if t not in TYPE_DIFF_MAP or TYPE_DIFF_MAP[t] not in ["상", "중", "하"]:
-        if d in ["상", "중", "하"]:
-            TYPE_DIFF_MAP[t] = d
-        elif t not in TYPE_DIFF_MAP:
-            TYPE_DIFF_MAP[t] = ""
+    if not t: continue
+    
+    # "상", "중", "하" 값이 있으면 무조건 최우선으로 덮어씁니다!
+    if d in ["상", "중", "하"]:
+        TYPE_DIFF_MAP[t] = d
+    # 아직 이 유형이 딕셔너리에 없으면 일단 빈칸으로 만들어 둡니다.
+    elif t not in TYPE_DIFF_MAP:
+        TYPE_DIFF_MAP[t] = ""
 
-# 🚀 [추가] 드롭다운에서 보여줄 컬러코딩 포맷 함수
+# 드롭다운 라벨 포맷팅
 def format_type_label(t):
     diff = TYPE_DIFF_MAP.get(t, "")
     if diff == "상": return f"🔴 {t} [상]"
     elif diff == "중": return f"🔵 {t} [중]"
     elif diff == "하": return f"🟢 {t} [하]"
-    return f"⚪ {t}" # 태깅(난이도)이 없는 경우의 Fallback
+    return f"⚪ {t}"
 
 PRIMARY_TYPES = [
     "어법상 맞는 것", "어법상 옳은 것", "어법상 옳지 않은 것",
@@ -188,6 +189,11 @@ PRIMARY_TYPES = [
 ALL_TYPES = sorted(set(q["t"] for q in QUESTIONS if q["t"]))
 SORTED_TYPES = [t for t in PRIMARY_TYPES if t in ALL_TYPES] + \
                [t for t in ALL_TYPES if t not in PRIMARY_TYPES]
+
+# 🚀 파이썬이 데이터를 어떻게 읽었는지 직접 확인하는 디버그 뷰 추가
+with st.sidebar:
+    with st.expander("🛠️ 데이터 매핑 디버그 확인"):
+        st.write(TYPE_DIFF_MAP)
 
 # ── CSS ──────────────────────────────────────────────────
 st.markdown("""
