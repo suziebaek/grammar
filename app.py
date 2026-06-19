@@ -15,28 +15,58 @@ st.set_page_config(
 # ── 데이터 로드 (원본 JSON 방식 100% 유지) ───────────────────────
 BASE = Path(__file__).parent
 
+# [모드 1] 기존 로컬 JSON 로드
 @st.cache_data
-def load_questions():
+def load_json_db():
     with open(BASE / "questions_db.json", encoding="utf-8") as f:
-        return json.load(f)
-
-@st.cache_data
-def load_concepts():
+        q = json.load(f)
     with open(BASE / "concept_hierarchy.json", encoding="utf-8") as f:
-        return json.load(f)
+        c = json.load(f)
+    return q, c
 
-QUESTIONS = load_questions()
-CONCEPTS  = load_concepts()
-
-# 문제 유형 목록
-PRIMARY_TYPES = [
-    "어법상 맞는 것", "어법상 옳은 것", "어법상 옳지 않은 것",
-    "빈칸 채우기", "개수 고르기", "올바른 영작",
-    "어법상 어색한 것", "어법상 바른 것", "바르게 짝지어진 것",
-]
-ALL_TYPES = sorted(set(q["t"] for q in QUESTIONS if q["t"]))
-SORTED_TYPES = [t for t in PRIMARY_TYPES if t in ALL_TYPES] + \
-               [t for t in ALL_TYPES if t not in PRIMARY_TYPES]
+# [모드 2] 구글 시트 실시간 로드
+@st.cache_data(ttl=180)
+def load_gsheets_db(sheet_url):
+    try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(spreadsheet=sheet_url, ttl="3m")
+        df = df.fillna('')
+        
+        questions_pool = []
+        concepts_hierarchy = {}
+        
+        for _, row in df.iterrows():
+            chap = str(row.get('Chapter', '')).strip()
+            con = str(row.get('Concept', '')).strip()
+            sid = str(row.get('Source_ID', '')).strip()
+            
+            if not chap or not con:
+                continue
+                
+            questions_pool.append({
+                "u": chap, "s": con, "t": "빈칸 추론형",
+                "q": str(row.get('Points', '')),
+                "c": str(row.get('Passage', '')),
+                "a": "C", 
+                "e": str(row.get('Example', ''))
+            })
+            
+            if chap not in concepts_hierarchy:
+                concepts_hierarchy[chap] = {}
+            if con not in concepts_hierarchy[chap]:
+                concepts_hierarchy[chap][con] = []
+                
+            concepts_hierarchy[chap][con].append({
+                "minor": sid.split('-')[-1] if '-' in sid else sid,
+                "difficulty": str(row.get('School_Tag', '강남권 공통')),
+                "point": str(row.get('Points', '')),
+                "passage": str(row.get('Passage', '')),
+                "example": str(row.get('Example', ''))
+            })
+        return questions_pool, concepts_hierarchy
+    except Exception as e:
+        st.error(f"🚨 구글 시트 로드 실패: {e}")
+        return [], {}
 
 # ── CSS (원본 유지) ──────────────────────────────────────────────────
 st.markdown("""
@@ -99,10 +129,26 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── 사이드바 ──────────────────────────────────────────────
+# ── 사이드바 (설정 및 DB 모드 선택) ──────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### ⚙️ 설정")
+    st.markdown("### 🗄️ 데이터베이스 모드")
+    # 🚀 추가됨: DB 모드 스위치
+    db_mode = st.radio(
+        "DB 연결 방식 선택", 
+        ["로컬 JSON (Internal)", "Google Sheets (Cloud)"],
+        label_visibility="collapsed"
+    )
     
+    gsheet_url = ""
+    if db_mode == "Google Sheets (Cloud)":
+        gsheet_url = st.text_input(
+            "🔗 구글 시트 URL 입력", 
+            placeholder="https://docs.google.com/spreadsheets/d/...",
+            help="공유 설정이 '링크가 있는 모든 사용자(뷰어)'로 되어 있어야 합니다."
+        )
+    
+    st.markdown("---")
+    st.markdown("### ⚙️ API 설정")
     # 🚀 수정됨: 단일 입력창으로 모든 API 키 통합 처리
     raw_api_key = st.text_input(
         "🔑 통합 API Key 입력창", 
@@ -134,7 +180,16 @@ with st.sidebar:
         # Azure 사용 시 엔드포인트 URL 추가 입력창 노출
         if "Azure" in detected_platform:
             azure_endpoint = st.text_input("Azure Endpoint URL", placeholder="https://YOUR_RESOURCE.openai.azure.com/")
-
+            
+if db_mode == "로컬 JSON (Internal)":
+    QUESTIONS, CONCEPTS = load_json_db()
+else:
+    if gsheet_url:
+        QUESTIONS, CONCEPTS = load_gsheets_db(gsheet_url)
+    else:
+        st.warning("⚠️ 구글 시트 URL이 입력되지 않아 임시로 로컬 JSON DB를 로드합니다.")
+        QUESTIONS, CONCEPTS = load_json_db()
+        
     st.markdown("---")
     st.markdown("### 📊 DB 현황")
     c1, c2 = st.columns(2)
