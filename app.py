@@ -227,42 +227,71 @@ with tab1:
 
     col_left, col_right = st.columns([1, 1], gap="large")
 
-    # ── 왼쪽: 개념 선택 ────────────────────────────────────
+    # ── 왼쪽: 개념 선택 (DB 모드별 UI 분리 적용) ─────────────────────────
     with col_left:
         st.markdown("### 📖 문법 개념 선택")
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
 
-        # 대분류
-        major_list = list(CONCEPTS.keys())
-        selected_major = st.selectbox("① 대분류", major_list, key="major")
+        if db_mode == "로컬 JSON (Internal)":
+            # ==========================================================
+            # 🗑️ [레거시] JSON DB 전용 UI 모듈 (추후 엑셀 준비 시 이 블록 삭제)
+            # ==========================================================
+            major_list = list(CONCEPTS.keys()) if CONCEPTS else ["데이터 없음"]
+            temp_major = st.selectbox("① 대분류", major_list, key="json_major")
 
-        # 중분류
-        mid_list = list(CONCEPTS[selected_major].keys())
-        selected_mid = st.selectbox("② 중분류", mid_list, key="mid")
+            mid_list = list(CONCEPTS[temp_major].keys()) if CONCEPTS and temp_major in CONCEPTS else ["데이터 없음"]
+            temp_mid = st.selectbox("② 중분류", mid_list, key="json_mid")
 
-        # 소분류
-        minor_items = CONCEPTS[selected_major][selected_mid]
-        minor_labels = [item["minor"] for item in minor_items if item["minor"]]
-        if minor_labels:
-            selected_minor_label = st.selectbox("③ 소분류", minor_labels, key="minor")
-            # 난이도 자동 표시
-            selected_item = next((x for x in minor_items if x["minor"] == selected_minor_label), None)
-            if selected_item:
-                diff = selected_item["difficulty"]
-                diff_class = f"diff-{diff}" if diff else ""
-                st.markdown(
-                    f'④ 개념의 난이도: <span class="diff-badge {diff_class}">{diff if diff else "미분류"}</span>',
-                    unsafe_allow_html=True,
-                )
-                if selected_item.get("point"):
-                    with st.expander("💡 출제 포인트 보기"):
-                        st.markdown(selected_item["point"])
+            minor_items = CONCEPTS[temp_major][temp_mid] if CONCEPTS and temp_major in CONCEPTS and temp_mid in CONCEPTS[temp_major] else []
+            minor_labels = [item["minor"] for item in minor_items if item["minor"]]
+            
+            if minor_labels:
+                temp_minor = st.selectbox("③ 소분류", minor_labels, key="json_minor")
+                selected_item = next((x for x in minor_items if x["minor"] == temp_minor), None)
+                if selected_item:
+                    temp_diff = selected_item["difficulty"]
+                    diff_class = f"diff-{temp_diff}" if temp_diff else ""
+                    st.markdown(f'④ 개념의 난이도: <span class="diff-badge {diff_class}">{temp_diff if temp_diff else "미분류"}</span>', unsafe_allow_html=True)
+                    if selected_item.get("point"):
+                        with st.expander("💡 출제 포인트 보기"):
+                            st.markdown(selected_item["point"])
+            else:
+                temp_minor, selected_item, temp_diff = "", None, ""
+
         else:
-            selected_minor_label = ""
-            selected_item = None
-            diff = ""
+            # ==========================================================
+            # ✨ [신규] Google Sheets 전용 UI 모듈 (마이그레이션 타겟)
+            # ==========================================================
+            chapter_list = list(CONCEPTS.keys()) if CONCEPTS else ["데이터 없음"]
+            temp_major = st.selectbox("① Chapter (단원)", chapter_list, key="gs_chapter")
+
+            concept_list = list(CONCEPTS[temp_major].keys()) if CONCEPTS and temp_major in CONCEPTS else ["데이터 없음"]
+            temp_mid = st.selectbox("② Concept (핵심 개념)", concept_list, key="gs_concept")
+
+            source_items = CONCEPTS[temp_major][temp_mid] if CONCEPTS and temp_major in CONCEPTS and temp_mid in CONCEPTS[temp_major] else []
+            source_ids = [item["minor"] for item in source_items if item["minor"]]
+            
+            if source_ids:
+                temp_minor = st.selectbox("③ Source ID (기출 출처)", source_ids, key="gs_source_id")
+                selected_item = next((x for x in source_items if x["minor"] == temp_minor), None)
+                if selected_item:
+                    temp_diff = selected_item["difficulty"]  # 시트의 School_Tag에 대응
+                    diff_class = "diff-상" if "상" in temp_diff else "diff-중"
+                    st.markdown(f'④ School Tag (타겟 수준): <span class="diff-badge {diff_class}">{temp_diff if temp_diff else "미분류"}</span>', unsafe_allow_html=True)
+                    
+                    if selected_item.get("point"):
+                        with st.expander("💡 Points (출제 함정 가이드라인)"):
+                            st.markdown(selected_item["point"])
+            else:
+                temp_minor, selected_item, temp_diff = "", None, ""
 
         st.markdown('</div>', unsafe_allow_html=True)
+
+        # UI에서 선택된 모드별 임시 변수들을 하단 통합 로직용 메인 변수에 바인딩
+        selected_major = temp_major
+        selected_mid = temp_mid
+        selected_minor_label = temp_minor
+        diff = temp_diff
 
         # ── 추가 요청사항 ──────────────────────────────────
         st.markdown("### ✏️ 추가 요청사항")
