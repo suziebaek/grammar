@@ -295,7 +295,7 @@ with tab1:
             label_visibility="collapsed",
         )
 
-   with col_right:
+with col_right:
         st.markdown("### 📋 문제 유형 & 개수")
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
         st.markdown("**문제 유형 선택 (복수 가능)**")
