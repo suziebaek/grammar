@@ -3,7 +3,13 @@ import json
 import random
 from pathlib import Path
 import google.generativeai as genai
-from openai import OpenAI, AzureOpenAI  # 통합 라우팅을 위해 추가된 패키지
+from openai import OpenAI, AzureOpenAI  # 통합 라우팅용
+from streamlit_gsheets import GSheetsConnection  # 구글 시트 연동용
+import pandas as pd
+
+# ── 🎯 전역 설정: 구글 시트 URL 하드코딩 ────────────────────────
+# (선생님의 실제 구글 시트 주소로 변경해주세요)
+GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?usp=sharing"
 
 # ── 페이지 설정 ───────────────────────────────────────────
 st.set_page_config(
@@ -12,7 +18,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# ── 데이터 로드 (원본 JSON 방식 100% 유지) ───────────────────────
+# ── 데이터 로드 함수 (JSON & 구글 시트 듀얼 모드) ───────────────────────
 BASE = Path(__file__).parent
 
 # [모드 1] 기존 로컬 JSON 로드
@@ -68,7 +74,62 @@ def load_gsheets_db(sheet_url):
         st.error(f"🚨 구글 시트 로드 실패: {e}")
         return [], {}
 
-# ── CSS (원본 유지) ──────────────────────────────────────────────────
+# ── 사이드바 (설정 및 DB 모드 선택) ──────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("### 🗄️ 데이터베이스 모드")
+    # DB 모드 스위치 (URL 입력창은 하드코딩으로 인해 제거됨)
+    db_mode = st.radio(
+        "DB 연결 방식 선택", 
+        ["로컬 JSON (Internal)", "Google Sheets (Cloud)"],
+        label_visibility="collapsed"
+    )
+    
+    st.markdown("---")
+    st.markdown("### ⚙️ API 설정")
+    raw_api_key = st.text_input(
+        "🔑 통합 API Key 입력창", 
+        type="password", 
+        placeholder="OpenRouter, Google AI, Azure 키 입력"
+    )
+    
+    selected_model = st.selectbox(
+        "🤖 출제 인공지능 엔진 모델",
+        options=["anthropic/claude-opus-4.8", "openai/gpt-5.1", "google/gemini-3.1-pro-preview"]
+    )
+    
+    detected_platform = "대기 중..."
+    if raw_api_key:
+        if raw_api_key.startswith("sk-or-"):
+            detected_platform = "🔗 OpenRouter 허브 모드"
+        elif raw_api_key.startswith("AIzaSy"):
+            detected_platform = "♊ Google AI Studio 모드"
+        elif len(raw_api_key) == 32 or "azure" in raw_api_key.lower():
+            detected_platform = "☁️ Microsoft Azure 모드"
+        elif raw_api_key.startswith("sk-"):
+            detected_platform = "🟢 OpenAI 직결 모드"
+            
+    if raw_api_key:
+        st.caption(f"**활성화된 연결:** `{detected_platform}`")
+        if "Azure" in detected_platform:
+            azure_endpoint = st.text_input("Azure Endpoint URL", placeholder="https://YOUR_RESOURCE.openai.azure.com/")
+
+# ── 하드코딩된 URL을 직접 참조하여 DB 할당 ──
+if db_mode == "로컬 JSON (Internal)":
+    QUESTIONS, CONCEPTS = load_json_db()
+else:
+    QUESTIONS, CONCEPTS = load_gsheets_db(GOOGLE_SHEET_URL)
+
+# 문제 유형 목록 세팅
+PRIMARY_TYPES = [
+    "어법상 맞는 것", "어법상 옳은 것", "어법상 옳지 않은 것",
+    "빈칸 채우기", "개수 고르기", "올바른 영작",
+    "어법상 어색한 것", "어법상 바른 것", "바르게 짝지어진 것",
+]
+ALL_TYPES = sorted(set(q["t"] for q in QUESTIONS if q["t"]))
+SORTED_TYPES = [t for t in PRIMARY_TYPES if t in ALL_TYPES] + \
+               [t for t in ALL_TYPES if t not in PRIMARY_TYPES]
+
+# ── CSS ──────────────────────────────────────────────────
 st.markdown("""
 <style>
   .main-header {
@@ -125,76 +186,17 @@ st.markdown("""
 st.markdown("""
 <div class="main-header">
   <h1>📝 영어 기출 문제 생성기</h1>
-  <p>강남구 중학교 기출 154문제 데이터 기반 · AI 응용 문제 자동 생성</p>
+  <p>강남구 중학교 기출 154문제 데이터 기반 · AI 응용 문제 자동 생성 (듀얼 DB 모드)</p>
 </div>
 """, unsafe_allow_html=True)
 
-# ── 사이드바 (설정 및 DB 모드 선택) ──────────────────────────────────────────────
+# ── 사이드바 하단 (DB 통계 렌더링) ──────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 🗄️ 데이터베이스 모드")
-    # 🚀 추가됨: DB 모드 스위치
-    db_mode = st.radio(
-        "DB 연결 방식 선택", 
-        ["로컬 JSON (Internal)", "Google Sheets (Cloud)"],
-        label_visibility="collapsed"
-    )
-    
-    gsheet_url = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=0#gid=0"
-    if db_mode == "Google Sheets (Cloud)":
-        gsheet_url = st.text_input(
-            "🔗 구글 시트 URL 입력", 
-            placeholder="https://docs.google.com/spreadsheets/d/...",
-            help="공유 설정이 '링크가 있는 모든 사용자(뷰어)'로 되어 있어야 합니다."
-        )
-    
     st.markdown("---")
-    st.markdown("### ⚙️ API 설정")
-    # 🚀 수정됨: 단일 입력창으로 모든 API 키 통합 처리
-    raw_api_key = st.text_input(
-        "🔑 통합 API Key 입력창", 
-        type="password", 
-        placeholder="OpenRouter, Google AI, Azure 키 입력"
-    )
-    
-    # 🚀 수정됨: 선생님이 요청하신 모델 라인업 옵션
-    selected_model = st.selectbox(
-        "🤖 출제 인공지능 엔진 모델",
-        options=["anthropic/claude-opus-4.8", "openai/gpt-5.1", "google/gemini-3.1-pro-preview"]
-    )
-    
-    # 🚀 추가됨: API 키 형태를 감지하여 연결될 프로토콜 표시
-    detected_platform = "대기 중..."
-    if raw_api_key:
-        if raw_api_key.startswith("sk-or-"):
-            detected_platform = "🔗 OpenRouter 허브 모드"
-        elif raw_api_key.startswith("AIzaSy"):
-            detected_platform = "♊ Google AI Studio 모드"
-        elif len(raw_api_key) == 32 or "azure" in raw_api_key.lower():
-            detected_platform = "☁️ Microsoft Azure 모드"
-        elif raw_api_key.startswith("sk-"):
-            detected_platform = "🟢 OpenAI 직결 모드"
-            
-    if raw_api_key:
-        st.caption(f"**활성화된 연결:** `{detected_platform}`")
-        
-        # Azure 사용 시 엔드포인트 URL 추가 입력창 노출
-        if "Azure" in detected_platform:
-            azure_endpoint = st.text_input("Azure Endpoint URL", placeholder="https://YOUR_RESOURCE.openai.azure.com/")
-            
-if db_mode == "로컬 JSON (Internal)":
-    QUESTIONS, CONCEPTS = load_json_db()
-else:
-    if gsheet_url:
-        QUESTIONS, CONCEPTS = load_gsheets_db(gsheet_url)
-    else:
-        st.warning("⚠️ 구글 시트 URL이 입력되지 않아 임시로 로컬 JSON DB를 로드합니다.")
-        QUESTIONS, CONCEPTS = load_json_db()
-        
-    st.markdown("---")
-    st.markdown("### 📊 DB 현황")
+    st.markdown("### 📊 현재 로드된 DB 현황")
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown(f'<div class="stat-box"><div class="num">{len(QUESTIONS)}</div><div class="label">기출 문제</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="stat-box"><div class="num">{len(QUESTIONS)}</div><div class="label">기출/참고 데이터</div></div>', unsafe_allow_html=True)
     with c2:
         st.markdown(f'<div class="stat-box"><div class="num">{len(CONCEPTS)}</div><div class="label">대분류</div></div>', unsafe_allow_html=True)
     st.markdown("")
@@ -205,10 +207,8 @@ else:
     st.markdown("---")
     st.markdown("**🔄 DB 업데이트 방법**")
     st.info(
-        "1. 엑셀 파일 수정 후 저장\n"
-        "2. 터미널에서 실행:\n"
-        "```\npython update_db.py\n```\n"
-        "3. 앱 재시작 (우측 상단 ⋮ → Rerun)"
+        "1. JSON 파일 또는 구글 시트 수정 후 저장\n"
+        "2. 앱 재시작 (우측 상단 ⋮ → Rerun)"
     )
 
 # ── 세션 초기화 ───────────────────────────────────────────
@@ -219,7 +219,6 @@ if "pending" not in st.session_state:
 
 # ── 탭 ───────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["🤖 AI 문제 생성", "📚 기출 문제 탐색", "📋 생성 기록"])
-
 
 # ════════════════════════════════════════════════════════
 # TAB 1 : AI 문제 생성
