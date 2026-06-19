@@ -306,12 +306,14 @@ with tab1:
     with col_right:
         st.markdown("### 📋 문제 유형 & 개수")
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
-
         st.markdown("**문제 유형 선택 (복수 가능)**")
+
+        safe_default = ["어법상 맞는 것"] if "어법상 맞는 것" in ALL_TYPES else (ALL_TYPES[:1] if ALL_TYPES else None)
+
         selected_types = st.multiselect(
             "유형",
-            SORTED_TYPES,
-            default=["어법상 맞는 것"],
+            ALL_TYPES,
+            default=safe_default,
             label_visibility="collapsed",
         )
 
