@@ -77,7 +77,6 @@ def load_gsheets_dual_db(q_url, c_url):
                 q_diff = str(row.get(diff_col_name, '')).strip()
 
             questions_pool.append({
-            questions_pool.append({
                 "u": str(row.get('대분류', '')).strip(),
                 "s": str(row.get('소분류', '')).strip(),
                 "t": q_type,
