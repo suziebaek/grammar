@@ -647,7 +647,7 @@ with tab3:
                 if not valid_problem_found:
                     st.markdown(raw.replace("\n", "  \n"))
 
-        # 통합 다운로드
+# 통합 다운로드
         combined = f"[생성 정보]\n단원: {entry['major']} > {entry['mid']} > {entry['minor']}\n난이도: {entry['difficulty']}\n\n"
         combined += "\n\n" + "="*60 + "\n\n".join(
             f"【{r['type']} 유형】\n\n{r['text']}" for r in entry["results"]
@@ -657,4 +657,5 @@ with tab3:
             data=combined.encode("utf-8"),
             file_name=f"{entry['major']}_{entry['minor']}_문제.txt",
             mime="text/plain",
+            key=f"dl_pending_{len(st.session_state.history)}"  # 🚀 이 줄이 반드시 들어가야 에러가 사라집니다!
         )
