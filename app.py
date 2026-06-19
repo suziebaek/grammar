@@ -3,12 +3,12 @@ import json
 import random
 from pathlib import Path
 import google.generativeai as genai
-from openai import OpenAI, AzureOpenAI  # 통합 라우팅용
-from streamlit_gsheets import GSheetsConnection  # 구글 시트 연동용
+from openai import OpenAI, AzureOpenAI
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
-# ── 🎯 전역 설정: 구글 시트 URL 하드코딩 ────────────────────────
-# (선생님의 실제 구글 시트 주소로 변경해주세요)
+# ── 🎯 전역 설정: 구글 시트 URL ──────────────────────────────
+# (준비하신 선생님의 구글 시트 주소로 아래 URL을 덮어써 주세요)
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?usp=sharing"
 
 # ── 페이지 설정 ───────────────────────────────────────────
@@ -18,66 +18,74 @@ st.set_page_config(
     layout="wide",
 )
 
-# ── 데이터 로드 함수 (JSON & 구글 시트 듀얼 모드) ───────────────────────
+# ── 데이터 로드 함수 ────────────────────────────────────────
 BASE = Path(__file__).parent
 
-# [모드 1] 기존 로컬 JSON 로드
+# [모드 1] 로컬 JSON 로드 (폴백용)
 @st.cache_data
 def load_json_db():
-    with open(BASE / "questions_db.json", encoding="utf-8") as f:
-        q = json.load(f)
-    with open(BASE / "concept_hierarchy.json", encoding="utf-8") as f:
-        c = json.load(f)
-    return q, c
-
-# [모드 2] 구글 시트 실시간 로드
-@st.cache_data(ttl=180)
-def load_gsheets_db(sheet_url):
     try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(spreadsheet=sheet_url, ttl="3m")
-        df = df.fillna('')
-        
-        questions_pool = []
-        concepts_hierarchy = {}
-        
-        for _, row in df.iterrows():
-            chap = str(row.get('Chapter', '')).strip()
-            con = str(row.get('Concept', '')).strip()
-            sid = str(row.get('Source_ID', '')).strip()
-            
-            if not chap or not con:
-                continue
-                
-            questions_pool.append({
-                "u": chap, "s": con, "t": "빈칸 추론형",
-                "q": str(row.get('Points', '')),
-                "c": str(row.get('Passage', '')),
-                "a": "C", 
-                "e": str(row.get('Example', ''))
-            })
-            
-            if chap not in concepts_hierarchy:
-                concepts_hierarchy[chap] = {}
-            if con not in concepts_hierarchy[chap]:
-                concepts_hierarchy[chap][con] = []
-                
-            concepts_hierarchy[chap][con].append({
-                "minor": sid.split('-')[-1] if '-' in sid else sid,
-                "difficulty": str(row.get('School_Tag', '강남권 공통')),
-                "point": str(row.get('Points', '')),
-                "passage": str(row.get('Passage', '')),
-                "example": str(row.get('Example', ''))
-            })
-        return questions_pool, concepts_hierarchy
-    except Exception as e:
-        st.error(f"🚨 구글 시트 로드 실패: {e}")
+        with open(BASE / "questions_db.json", encoding="utf-8") as f:
+            q = json.load(f)
+        with open(BASE / "concept_hierarchy.json", encoding="utf-8") as f:
+            c = json.load(f)
+        return q, c
+    except:
         return [], {}
 
-# ── 사이드바 (설정 및 DB 모드 선택) ──────────────────────────────────────────────
+# [모드 2] 멀티 탭 구글 시트 실시간 로드 (100% 순정 구조 변환)
+@st.cache_data(ttl=180)
+def load_gsheets_dual_db(sheet_url):
+    try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        
+        # 1. 'questions_db' 탭 파싱
+        df_questions = conn.read(spreadsheet=sheet_url, worksheet="questions_db", ttl="3m").fillna('')
+        questions_pool = []
+        for _, row in df_questions.iterrows():
+            q_type = str(row.get('문제유형(t)', '')).strip()
+            if not q_type:
+                continue
+            questions_pool.append({
+                "u": str(row.get('대분류(u)', '')).strip(),
+                "s": str(row.get('소분류(s)', '')).strip(),
+                "t": q_type,
+                "q": str(row.get('발문(q)', '')).strip(),
+                "c": str(row.get('보기(c)', '')).strip(),
+                "a": str(row.get('정답(a)', '')).strip(),
+                "e": str(row.get('해설(e)', '')).strip()
+            })
+
+        # 2. 'concept_hierarchy' 탭 파싱
+        df_concepts = conn.read(spreadsheet=sheet_url, worksheet="concept_hierarchy", ttl="3m").fillna('')
+        concepts_hierarchy = {}
+        for _, row in df_concepts.iterrows():
+            major = str(row.get('대분류', '')).strip()
+            mid = str(row.get('중분류', '')).strip()
+            minor = str(row.get('소분류', '')).strip()
+            
+            if not major or not mid:
+                continue
+                
+            if major not in concepts_hierarchy:
+                concepts_hierarchy[major] = {}
+            if mid not in concepts_hierarchy[major]:
+                concepts_hierarchy[major][mid] = []
+                
+            concepts_hierarchy[major][mid].append({
+                "minor": minor,
+                "difficulty": str(row.get('난이도', '')).strip(),
+                "point": str(row.get('출제포인트', '')).strip()
+            })
+            
+        return questions_pool, concepts_hierarchy
+    except Exception as e:
+        st.error(f"🚨 구글 시트 로드 실패 (탭 이름이나 권한을 확인하세요): {e}")
+        return [], {}
+
+# ── 사이드바 ───────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 🗄️ 데이터베이스 모드")
-    # DB 모드 스위치 (URL 입력창은 하드코딩으로 인해 제거됨)
     db_mode = st.radio(
         "DB 연결 방식 선택", 
         ["로컬 JSON (Internal)", "Google Sheets (Cloud)"],
@@ -113,13 +121,12 @@ with st.sidebar:
         if "Azure" in detected_platform:
             azure_endpoint = st.text_input("Azure Endpoint URL", placeholder="https://YOUR_RESOURCE.openai.azure.com/")
 
-# ── 하드코딩된 URL을 직접 참조하여 DB 할당 ──
+# ── DB 할당 및 문제 유형 정렬 ──
 if db_mode == "로컬 JSON (Internal)":
     QUESTIONS, CONCEPTS = load_json_db()
 else:
-    QUESTIONS, CONCEPTS = load_gsheets_db(GOOGLE_SHEET_URL)
+    QUESTIONS, CONCEPTS = load_gsheets_dual_db(GOOGLE_SHEET_URL)
 
-# 문제 유형 목록 세팅
 PRIMARY_TYPES = [
     "어법상 맞는 것", "어법상 옳은 것", "어법상 옳지 않은 것",
     "빈칸 채우기", "개수 고르기", "올바른 영작",
@@ -182,15 +189,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── 헤더 ─────────────────────────────────────────────────
 st.markdown("""
 <div class="main-header">
   <h1>📝 영어 기출 문제 생성기</h1>
-  <p>강남구 중학교 기출 154문제 데이터 기반 · AI 응용 문제 자동 생성 (듀얼 DB 모드)</p>
+  <p>강남구 중학교 기출 154문제 데이터 기반 · AI 응용 문제 자동 생성 (클라우드/로컬 하이브리드)</p>
 </div>
 """, unsafe_allow_html=True)
 
-# ── 사이드바 하단 (DB 통계 렌더링) ──────────────────────────────────────────────
+# ── 사이드바 통계 ──
 with st.sidebar:
     st.markdown("---")
     st.markdown("### 📊 현재 로드된 DB 현황")
@@ -204,96 +210,50 @@ with st.sidebar:
     for major in CONCEPTS:
         total = sum(len(v) for v in CONCEPTS[major].values())
         st.markdown(f"- {major} ({total}개 소개념)")
-    st.markdown("---")
-    st.markdown("**🔄 DB 업데이트 방법**")
-    st.info(
-        "1. JSON 파일 또는 구글 시트 수정 후 저장\n"
-        "2. 앱 재시작 (우측 상단 ⋮ → Rerun)"
-    )
 
-# ── 세션 초기화 ───────────────────────────────────────────
 if "history" not in st.session_state:
-    st.session_state.history = []   # [{unit, mid, minor, diff, types, count, results:[{type, text}]}]
+    st.session_state.history = []
 if "pending" not in st.session_state:
-    st.session_state.pending = []   # 현재 배치에 추가 중인 항목들
+    st.session_state.pending = []
 
-# ── 탭 ───────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["🤖 AI 문제 생성", "📚 기출 문제 탐색", "📋 생성 기록"])
 
 # ════════════════════════════════════════════════════════
 # TAB 1 : AI 문제 생성
 # ════════════════════════════════════════════════════════
 with tab1:
-
     col_left, col_right = st.columns([1, 1], gap="large")
 
-    # ── 왼쪽: 개념 선택 (DB 모드별 UI 분리 적용) ─────────────────────────
     with col_left:
         st.markdown("### 📖 문법 개념 선택")
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
 
-        if db_mode == "로컬 JSON (Internal)":
-            # ==========================================================
-            # 🗑️ [레거시] JSON DB 전용 UI 모듈 (추후 엑셀 준비 시 이 블록 삭제)
-            # ==========================================================
-            major_list = list(CONCEPTS.keys()) if CONCEPTS else ["데이터 없음"]
-            temp_major = st.selectbox("① 대분류", major_list, key="json_major")
+        major_list = list(CONCEPTS.keys()) if CONCEPTS else ["데이터 없음"]
+        selected_major = st.selectbox("① 대분류", major_list, key="major")
 
-            mid_list = list(CONCEPTS[temp_major].keys()) if CONCEPTS and temp_major in CONCEPTS else ["데이터 없음"]
-            temp_mid = st.selectbox("② 중분류", mid_list, key="json_mid")
+        mid_list = list(CONCEPTS[selected_major].keys()) if CONCEPTS and selected_major in CONCEPTS else ["데이터 없음"]
+        selected_mid = st.selectbox("② 중분류", mid_list, key="mid")
 
-            minor_items = CONCEPTS[temp_major][temp_mid] if CONCEPTS and temp_major in CONCEPTS and temp_mid in CONCEPTS[temp_major] else []
-            minor_labels = [item["minor"] for item in minor_items if item["minor"]]
-            
-            if minor_labels:
-                temp_minor = st.selectbox("③ 소분류", minor_labels, key="json_minor")
-                selected_item = next((x for x in minor_items if x["minor"] == temp_minor), None)
-                if selected_item:
-                    temp_diff = selected_item["difficulty"]
-                    diff_class = f"diff-{temp_diff}" if temp_diff else ""
-                    st.markdown(f'④ 개념의 난이도: <span class="diff-badge {diff_class}">{temp_diff if temp_diff else "미분류"}</span>', unsafe_allow_html=True)
-                    if selected_item.get("point"):
-                        with st.expander("💡 출제 포인트 보기"):
-                            st.markdown(selected_item["point"])
-            else:
-                temp_minor, selected_item, temp_diff = "", None, ""
-
+        minor_items = CONCEPTS[selected_major][selected_mid] if CONCEPTS and selected_major in CONCEPTS and selected_mid in CONCEPTS[selected_major] else []
+        minor_labels = [item["minor"] for item in minor_items if item["minor"]]
+        
+        if minor_labels:
+            selected_minor_label = st.selectbox("③ 소분류", minor_labels, key="minor")
+            selected_item = next((x for x in minor_items if x["minor"] == selected_minor_label), None)
+            if selected_item:
+                diff = selected_item["difficulty"]
+                diff_class = f"diff-{diff}" if diff else ""
+                st.markdown(f'④ 개념의 난이도: <span class="diff-badge {diff_class}">{diff if diff else "미분류"}</span>', unsafe_allow_html=True)
+                if selected_item.get("point"):
+                    with st.expander("💡 출제 포인트 보기"):
+                        st.markdown(selected_item["point"])
         else:
-            # ==========================================================
-            # ✨ [신규] Google Sheets 전용 UI 모듈 (마이그레이션 타겟)
-            # ==========================================================
-            chapter_list = list(CONCEPTS.keys()) if CONCEPTS else ["데이터 없음"]
-            temp_major = st.selectbox("① Chapter (단원)", chapter_list, key="gs_chapter")
-
-            concept_list = list(CONCEPTS[temp_major].keys()) if CONCEPTS and temp_major in CONCEPTS else ["데이터 없음"]
-            temp_mid = st.selectbox("② Concept (핵심 개념)", concept_list, key="gs_concept")
-
-            source_items = CONCEPTS[temp_major][temp_mid] if CONCEPTS and temp_major in CONCEPTS and temp_mid in CONCEPTS[temp_major] else []
-            source_ids = [item["minor"] for item in source_items if item["minor"]]
-            
-            if source_ids:
-                temp_minor = st.selectbox("③ Source ID (기출 출처)", source_ids, key="gs_source_id")
-                selected_item = next((x for x in source_items if x["minor"] == temp_minor), None)
-                if selected_item:
-                    temp_diff = selected_item["difficulty"]  # 시트의 School_Tag에 대응
-                    diff_class = "diff-상" if "상" in temp_diff else "diff-중"
-                    st.markdown(f'④ School Tag (타겟 수준): <span class="diff-badge {diff_class}">{temp_diff if temp_diff else "미분류"}</span>', unsafe_allow_html=True)
-                    
-                    if selected_item.get("point"):
-                        with st.expander("💡 Points (출제 함정 가이드라인)"):
-                            st.markdown(selected_item["point"])
-            else:
-                temp_minor, selected_item, temp_diff = "", None, ""
+            selected_minor_label = ""
+            selected_item = None
+            diff = ""
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # UI에서 선택된 모드별 임시 변수들을 하단 통합 로직용 메인 변수에 바인딩
-        selected_major = temp_major
-        selected_mid = temp_mid
-        selected_minor_label = temp_minor
-        diff = temp_diff
-
-        # ── 추가 요청사항 ──────────────────────────────────
         st.markdown("### ✏️ 추가 요청사항")
         extra = st.text_area(
             "추가 요청",
@@ -302,33 +262,30 @@ with tab1:
             label_visibility="collapsed",
         )
 
-    # ── 오른쪽: 문제 유형 & 개수 ───────────────────────────
     with col_right:
         st.markdown("### 📋 문제 유형 & 개수")
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
         st.markdown("**문제 유형 선택 (복수 가능)**")
 
-        safe_default = ["어법상 맞는 것"] if "어법상 맞는 것" in ALL_TYPES else (ALL_TYPES[:1] if ALL_TYPES else None)
+        # 🚀 에러 방지용 안전장치 (가장 완벽한 형태)
+        safe_default = ["어법상 맞는 것"] if "어법상 맞는 것" in SORTED_TYPES else (SORTED_TYPES[:1] if SORTED_TYPES else None)
 
         selected_types = st.multiselect(
             "유형",
-            ALL_TYPES,
+            SORTED_TYPES,
             default=safe_default,
             label_visibility="collapsed",
         )
 
         st.markdown("**유형별 생성 개수**")
         num_per_type = st.slider("개수", 1, 10, 5)
-
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # 기출 참고 현황
         ref_pool = [q for q in QUESTIONS if selected_major in q["u"] or selected_mid in q.get("s","")]
         if not ref_pool:
             ref_pool = QUESTIONS
         st.info(f"📎 참고 기출: {len(ref_pool)}문제 ('{selected_major}' 관련)")
 
-        # 생성할 문제 요약
         if selected_types:
             st.markdown("**생성 예정**")
             for t in selected_types:
@@ -358,7 +315,6 @@ with tab1:
             progress = st.progress(0, text="생성 중...")
             total = len(selected_types)
             
-            # 🚀 수정됨: 통합 라우팅 클라이언트 셋업
             client = None
             is_google_native = False
             
@@ -371,18 +327,17 @@ with tab1:
                 try:
                     client = AzureOpenAI(
                         api_key=raw_api_key,
-                        api_version="2024-02-15-preview", # Azure 표준 버전
+                        api_version="2024-02-15-preview", 
                         azure_endpoint=azure_endpoint
                     )
                 except NameError:
                     st.error("Azure 연결을 위한 엔드포인트 URL을 입력해주세요.")
             else:
-                client = OpenAI(api_key=raw_api_key) # 표준 OpenAI
+                client = OpenAI(api_key=raw_api_key)
 
             for idx, qtype in enumerate(selected_types):
                 progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 생성 중...")
 
-                # 문제 유형이 같은 기출 우선, 없으면 단원 기준, 없으면 전체
                 type_matched = [q for q in QUESTIONS if q["t"] == qtype]
                 unit_matched = [q for q in QUESTIONS if selected_major in q["u"]]
                 qtype_pool = type_matched if len(type_matched) >= 3 else (unit_matched if unit_matched else QUESTIONS)
@@ -394,36 +349,34 @@ with tab1:
 
                 point_text = selected_item.get("point", "") if selected_item else ""
 
-                # 🚀 수정됨: 프롬프트 품질 고도화 지침 추가
-                prompt = f"""당신은 강남구 중학교 영어 시험 문제 전문 출제자입니다.
+                prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
 
-=== [역할 A] 기출 문제 — 발문 형식·선지 스타일·보기 구성 참고용 ===
-아래 기출 문제들은 오직 발문 형식, 선지 구성 방식, 보기 스타일을 참고하기 위한 자료입니다.
-출제할 문법 개념과 내용은 아래 기출에서 가져오지 마세요.
+=== [역할 A] 기출문제 벤치마킹 (형식 및 오답 설계 논리 카피) ===
+아래 5개의 기출문제는 당신이 타겟으로 삼아야 할 '최고 수준의 퀄리티'를 보여줍니다.
+단순히 번호 형식(①②③)만 베끼는 것이 아니라, **지문의 길이, 어휘의 난이도, 고등학생을 속이는 교묘한 오답(Distractor) 설계 논리, 그리고 논리적인 해설 방식까지 100% 완벽하게 모방(Copy)** 하세요.
 
+[참고용 기출문제 5선]
 {ref_text}
 
-=== [역할 B] 출제 개념 — 반드시 이 내용을 기반으로 출제 ===
-- 문법 대분류: {selected_major}
-- 문법 중분류: {selected_mid}
-- 문법 소분류: {selected_minor_label}
+=== [역할 B] 출제 타겟 개념 (이 개념을 주제로 출제할 것) ===
+- 대분류: {selected_major}
+- 중분류: {selected_mid}
+- 소분류: {selected_minor_label}
 - 난이도: {diff if diff else '미지정'}
-- 출제 포인트 (문제에서 반드시 다뤄야 할 핵심 개념):
-{point_text}
+- 핵심 출제 포인트: {point_text}
 
 === 출제 조건 ===
 - 문제 유형: {qtype}
 - 생성 개수: {num_per_type}개
 - 추가 요청: {extra if extra else '없음'}
 
-=== ★ 출제 규칙 및 함정 가이드라인 (매우 중요) ★ ===
-1. 문제의 핵심 개념은 반드시 [역할 B]의 출제 포인트에서만 가져올 것
-2. 발문 형식과 선지 스타일은 [역할 A] 기출 문제를 그대로 참고할 것
-3. [치명적 오답 설계]: 'cans', 'musted', 'wills' 같이 영어에 존재하지 않는 유치한 가짜 단어를 만드는 것을 **절대 금지**한다. 
-4. 오답(함정)을 만들 때는 주어와 동사 사이를 멀리 떨어뜨리거나, 병렬 구조 속에 수일치 오류를 숨기는 등 구조적으로 교묘하게 설계할 것.
-5. 선지는 ①②③④⑤ 형식으로 5개 구성, 각 문제마다 [정답]과 [해설] 포함
-6. 해설은 오답 이유도 함께 상세히 설명 (기출 해설 스타일 참고)
-7. 영어 문장은 시사 에세이나 학술적인 느낌을 담아 고등학교 모의고사 수준으로 창작할 것.
+=== ★ 객관식 선지 작성 절대 규칙 (치명적 출제 오류 방지) ★ ===
+1. [역할 B]의 핵심 포인트를 기반으로 출제하되, 문장의 퀄리티는 [역할 A]를 닮아야 합니다.
+2. "어법상 맞는 것을 고르시오" 유형: 정답인 1개 선지만 문법적으로 완벽해야 하며, 나머지 4개 선지는 반드시 논란의 여지가 없는 100% 명백한 문법적 오류(예: 자동사의 수동태 사용 등)를 포함해야 합니다.
+3. "어법상 틀린 것을 고르시오" 유형: 정답인 1개 선지만 명백한 문법적 오류가 있어야 하며, 나머지 4개 선지는 완벽하게 올바른 문장이어야 합니다.
+4. **[사후 정당화 절대 금지]**: 문법적으로 올바른 선지를 만들어 놓고 해설에서 "문맥상 어색하다", "병렬 구조라 생략해야 한다", "학습 포인트가 아니다" 등의 억지 핑계를 대며 오답 처리하는 것을 엄격히 금지합니다. 오답은 오직 '문법적 오류 팩트'로만 증명해야 합니다.
+5. 'cans', 'musted' 처럼 존재하지 않는 유치한 단어를 지어내지 말고, 수식어구로 주어-동사 거리를 벌리는 등 구문 분석을 요하는 실전형 함정을 파세요.
+6. 선지는 ①②③④⑤ 형식으로 5개 구성, 각 문제마다 [정답]과 [해설]을 포함하세요.
 
 === 출력 형식 (반드시 준수) ===
 【문제 N】
@@ -445,17 +398,13 @@ with tab1:
 ---
 """
                 try:
-                    # 🚀 수정됨: 통합 라우팅 통신 로직
                     if is_google_native:
-                        # Gemini Native 처리
                         gemini_model_name = "gemini-1.5-pro" if "gemini" in selected_model.lower() else "gemini-1.5-pro"
                         model = genai.GenerativeModel(gemini_model_name)
                         response = model.generate_content(prompt)
                         result_text = response.text
                     else:
-                        # OpenRouter / OpenAI / Azure 공통 처리
                         target_model = selected_model
-                        # 만약 순수 OpenAI 키인데 claude를 골랐을 경우를 대비한 폴백 처리
                         if "sk-" in raw_api_key and not raw_api_key.startswith("sk-or-") and "gpt" not in selected_model:
                             target_model = "gpt-4o"
                             
@@ -472,7 +421,6 @@ with tab1:
 
             progress.progress(1.0, text="✅ 생성 완료!")
 
-            # 세션에 저장
             entry = {
                 "major": selected_major,
                 "mid": selected_mid,
@@ -486,7 +434,6 @@ with tab1:
             st.session_state.pending = [entry]
             st.rerun()
 
-    # ── 결과 표시 (원본 유지) ─────────────────────────────────────────
     if st.session_state.pending:
         entry = st.session_state.pending[-1]
         st.markdown("---")
@@ -525,7 +472,6 @@ with tab1:
                         st.markdown(parts["해설"].replace("\n", "  \n"))
                     st.markdown('</div>', unsafe_allow_html=True)
 
-        # 통합 다운로드
         combined = f"[생성 정보]\n단원: {entry['major']} > {entry['mid']} > {entry['minor']}\n난이도: {entry['difficulty']}\n\n"
         combined += "\n\n" + "="*60 + "\n\n".join(
             f"【{r['type']} 유형】\n\n{r['text']}" for r in entry["results"]
@@ -537,9 +483,8 @@ with tab1:
             mime="text/plain",
         )
 
-
 # ════════════════════════════════════════════════════════
-# TAB 2 : 기출 문제 탐색 (원본 기능 100% 보존)
+# TAB 2 : 기출 문제 탐색 
 # ════════════════════════════════════════════════════════
 with tab2:
     st.markdown("### 기출 문제 탐색")
@@ -563,7 +508,6 @@ with tab2:
         filtered = [q for q in filtered if kl in q["q"].lower() or kl in q["s"].lower() or kl in q["c"].lower()]
 
     def render_newlines(text: str) -> str:
-        """줄바꿈 문자를 마크다운 줄바꿈(스페이스2개+\n)으로 변환"""
         return text.replace("\n", "  \n")
 
     st.markdown(f"**검색 결과: {len(filtered)}문제**")
@@ -580,9 +524,8 @@ with tab2:
     if len(filtered) > 30:
         st.info("상위 30개만 표시됩니다. 필터를 좁혀 검색하세요.")
 
-
 # ════════════════════════════════════════════════════════
-# TAB 3 : 생성 기록 (원본 기능 100% 보존)
+# TAB 3 : 생성 기록 
 # ════════════════════════════════════════════════════════
 with tab3:
     st.markdown("### 생성 기록")
@@ -590,7 +533,6 @@ with tab3:
     if not st.session_state.history:
         st.info("아직 생성된 문제가 없습니다.")
     else:
-        # 전체 통합 다운로드
         all_combined = ""
         for i, h in enumerate(st.session_state.history):
             all_combined += f"\n{'='*70}\n"
@@ -617,7 +559,6 @@ with tab3:
                     st.markdown(r["text"])
                     st.markdown("---")
 
-                # 이 세트 개별 다운로드
                 set_text = f"[{h['major']} > {h['mid']} > {h['minor']}] 난이도: {h['difficulty']}\n\n"
                 set_text += "\n\n".join(f"【{r['type']}】\n\n{r['text']}" for r in h["results"])
                 st.download_button(
