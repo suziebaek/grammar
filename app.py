@@ -58,6 +58,8 @@ def load_gsheets_dual_db(q_url, c_url):
         if '대분류' not in df_questions.columns:
             st.error("🚨 기출DB를 제대로 읽어오지 못했습니다. 구글 시트의 공유 권한이 '링크가 있는 모든 사용자(뷰어)'인지 확인해 주세요.")
             return [], {}
+# 🚀 [추가] H열(8번째 열, 인덱스 7) 컬럼명을 동적으로 가져옵니다. (이름이 바뀌어도 작동)
+        diff_col_name = df_questions.columns[7] if len(df_questions.columns) > 7 else None
 
         # 1. 'questions_db' 탭 파싱
         questions_pool = []
@@ -65,6 +67,14 @@ def load_gsheets_dual_db(q_url, c_url):
             q_type = str(row.get('문제유형', '')).strip()
             if not q_type:
                 continue
+                
+            # 🚀 [추가] H열에서 난이도 값을 추출 (없으면 기존 '난이도' 컬럼명에서 탐색, 모두 없으면 빈칸)
+            q_diff = ""
+            if diff_col_name:
+                q_diff = str(row.get(diff_col_name, '')).strip()
+            if not q_diff and '난이도' in df_questions.columns:
+                q_diff = str(row.get('난이도', '')).strip()
+                
             questions_pool.append({
                 "u": str(row.get('대분류', '')).strip(),
                 "s": str(row.get('소분류', '')).strip(),
@@ -143,9 +153,28 @@ with st.sidebar:
 if db_mode == "로컬 JSON (Internal)":
     QUESTIONS, CONCEPTS = load_json_db()
 else:
-    # 🚀 수정됨: 두 개의 URL을 각각 넘겨줍니다.
     QUESTIONS, CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
     
+# 🚀 [추가] 문제 유형(t)별 난이도(d) 매핑 테이블 생성
+TYPE_DIFF_MAP = {}
+for q in QUESTIONS:
+    t = q.get("t", "")
+    d = q.get("d", "")
+    # 상/중/하 값이 명확한 경우를 우선적으로 저장합니다.
+    if t not in TYPE_DIFF_MAP or TYPE_DIFF_MAP[t] not in ["상", "중", "하"]:
+        if d in ["상", "중", "하"]:
+            TYPE_DIFF_MAP[t] = d
+        elif t not in TYPE_DIFF_MAP:
+            TYPE_DIFF_MAP[t] = ""
+
+# 🚀 [추가] 드롭다운에서 보여줄 컬러코딩 포맷 함수
+def format_type_label(t):
+    diff = TYPE_DIFF_MAP.get(t, "")
+    if diff == "상": return f"🔴 {t} [상]"
+    elif diff == "중": return f"🔵 {t} [중]"
+    elif diff == "하": return f"🟢 {t} [하]"
+    return f"⚪ {t}" # 태깅(난이도)이 없는 경우의 Fallback
+
 PRIMARY_TYPES = [
     "어법상 맞는 것", "어법상 옳은 것", "어법상 옳지 않은 것",
     "빈칸 채우기", "개수 고르기", "올바른 영작",
@@ -312,6 +341,7 @@ with tab1:
             "유형",
             SORTED_TYPES,
             default=safe_default,
+            format_func=format_type_label, # 🚀 [핵심] 여기서 🔴🔵🟢 아이콘이 드롭다운에 입혀집니다!
             label_visibility="collapsed",
         )
 
@@ -324,10 +354,24 @@ with tab1:
             ref_pool = QUESTIONS
         st.info(f"📎 참고 기출: {len(ref_pool)}문제 ('{selected_major}' 관련)")
 
+        # 🚀 [수정] HTML을 적용하여 하단 요약 화면에도 완벽한 컬러코딩 텍스트 표시
         if selected_types:
             st.markdown("**생성 예정**")
             for t in selected_types:
-                st.markdown(f"- {t} × {num_per_type}문제")
+                diff = TYPE_DIFF_MAP.get(t, "")
+                # 지정된 상(빨강), 중(파랑), 하(녹색) CSS 텍스트 적용
+                if diff == "상":
+                    icon_html = '<span style="color:#ef4444; font-weight:bold;">🔴 [상]</span>'
+                elif diff == "중":
+                    icon_html = '<span style="color:#3b82f6; font-weight:bold;">🔵 [중]</span>'
+                elif diff == "하":
+                    icon_html = '<span style="color:#22c55e; font-weight:bold;">🟢 [하]</span>'
+                else:
+                    icon_html = '<span style="color:#9ca3af; font-weight:bold;">⚪ [미분류]</span>' # Fallback
+                
+                # HTML을 안전하게 허용하여 렌더링
+                st.markdown(f"- {icon_html} **{t}** × {num_per_type}문제", unsafe_allow_html=True)
+                
             st.markdown(f"**→ 총 {len(selected_types) * num_per_type}문제**")
 
     # ── 생성 버튼 ─────────────────────────────────────────
