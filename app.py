@@ -139,7 +139,7 @@ with st.sidebar:
         label_visibility="collapsed"
     )
     
-    gsheet_url = ""
+    gsheet_url = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=0#gid=0"
     if db_mode == "Google Sheets (Cloud)":
         gsheet_url = st.text_input(
             "🔗 구글 시트 URL 입력", 
