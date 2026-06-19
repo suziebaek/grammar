@@ -4,12 +4,12 @@ import random
 from pathlib import Path
 import google.generativeai as genai
 from openai import OpenAI, AzureOpenAI
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
-# ── 🎯 전역 설정: 구글 시트 URL ──────────────────────────────
-# (준비하신 선생님의 구글 시트 주소로 아래 URL을 덮어써 주세요)
-GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?usp=sharing"
+# ── 🎯 전역 설정: 구글 시트 탭별 GID URL 하드코딩 ────────────────────────
+# (선생님의 시트에서 각 탭을 클릭했을 때 나오는 '주소창의 전체 주소'를 각각 넣어주세요)
+QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=939067680#gid=939067680"
+CONCEPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=0#gid=0"
 
 # ── 페이지 설정 ───────────────────────────────────────────
 st.set_page_config(
@@ -33,14 +33,19 @@ def load_json_db():
     except:
         return [], {}
 
-# [모드 2] 멀티 탭 구글 시트 실시간 로드 (100% 순정 구조 변환)
+# [모드 2] 멀티 탭 구글 시트 다이렉트 로드 (400 에러 원천 차단)
 @st.cache_data(ttl=180)
-def load_gsheets_dual_db(sheet_url):
+def load_gsheets_dual_db(q_url, c_url):
     try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
+        # 구글 시트 웹 URL을 데이터 다운로드용(CSV) API 주소로 변환하는 마법의 함수
+        def convert_to_csv_url(url):
+            return url.replace("/edit#gid=", "/export?format=csv&gid=").replace("/edit?usp=sharing", "/export?format=csv")
+
+        # Pandas로 다이렉트 로드 (별도 라이브러리 인증 불필요)
+        df_questions = pd.read_csv(convert_to_csv_url(q_url)).fillna('')
+        df_concepts = pd.read_csv(convert_to_csv_url(c_url)).fillna('')
         
         # 1. 'questions_db' 탭 파싱
-        df_questions = conn.read(spreadsheet=sheet_url, worksheet="questions_db", ttl="3m").fillna('')
         questions_pool = []
         for _, row in df_questions.iterrows():
             q_type = str(row.get('문제유형(t)', '')).strip()
@@ -57,7 +62,6 @@ def load_gsheets_dual_db(sheet_url):
             })
 
         # 2. 'concept_hierarchy' 탭 파싱
-        df_concepts = conn.read(spreadsheet=sheet_url, worksheet="concept_hierarchy", ttl="3m").fillna('')
         concepts_hierarchy = {}
         for _, row in df_concepts.iterrows():
             major = str(row.get('대분류', '')).strip()
@@ -80,7 +84,7 @@ def load_gsheets_dual_db(sheet_url):
             
         return questions_pool, concepts_hierarchy
     except Exception as e:
-        st.error(f"🚨 구글 시트 로드 실패 (탭 이름이나 권한을 확인하세요): {e}")
+        st.error(f"🚨 구글 시트 다이렉트 로드 실패: {e}")
         return [], {}
 
 # ── 사이드바 ───────────────────────────────────────────────────
@@ -125,8 +129,9 @@ with st.sidebar:
 if db_mode == "로컬 JSON (Internal)":
     QUESTIONS, CONCEPTS = load_json_db()
 else:
-    QUESTIONS, CONCEPTS = load_gsheets_dual_db(GOOGLE_SHEET_URL)
-
+    # 🚀 수정됨: 두 개의 URL을 각각 넘겨줍니다.
+    QUESTIONS, CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
+    
 PRIMARY_TYPES = [
     "어법상 맞는 것", "어법상 옳은 것", "어법상 옳지 않은 것",
     "빈칸 채우기", "개수 고르기", "올바른 영작",
