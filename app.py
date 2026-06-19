@@ -517,3 +517,85 @@ with tab1:
             mime="text/plain",
             key=f"dl_pending_tab1_safe_{len(st.session_state.history)}"
         )
+
+# ════════════════════════════════════════════════════════
+# TAB 2 : 기출 문제 탐색 (복구 완료)
+# ════════════════════════════════════════════════════════
+with tab2:
+    st.markdown("### 📚 기출 문제 탐색")
+
+    fc1, fc2, fc3 = st.columns(3)
+    with fc1:
+        f_major = st.selectbox("대분류 필터", ["전체"] + list(CONCEPTS.keys()), key="f_major")
+    with fc2:
+        all_q_types = sorted(set(q["t"] for q in QUESTIONS if q["t"]))
+        f_type = st.selectbox("문제유형 필터", ["전체"] + all_q_types, key="f_type")
+    with fc3:
+        kw = st.text_input("키워드", placeholder="예) 관계대명사, 현재완료")
+
+    filtered = QUESTIONS
+    if f_major != "전체":
+        filtered = [q for q in filtered if f_major in q["u"]]
+    if f_type != "전체":
+        filtered = [q for q in filtered if q["t"] == f_type]
+    if kw:
+        kl = kw.lower()
+        filtered = [q for q in filtered if kl in q["q"].lower() or kl in q["s"].lower() or kl in q["c"].lower()]
+
+    def render_newlines(text: str) -> str:
+        return text.replace("\n", "  \n")
+
+    st.markdown(f"**검색 결과: {len(filtered)}문제**")
+    for q in filtered[:30]:
+        with st.expander(f"[{q['u']} > {q['s']}] {q['t']} — {q['q'][:60]}..."):
+            st.markdown(f"**발문:** {q['q']}")
+            if q["c"]:
+                st.markdown("**보기/지문:**")
+                st.markdown(render_newlines(q["c"]))
+            st.markdown(f'<div class="answer-box">✅ <b>정답:</b> {q["a"]}</div>', unsafe_allow_html=True)
+            if q["e"]:
+                st.markdown("💡 **해설:**")
+                st.markdown(render_newlines(q["e"]))
+    if len(filtered) > 30:
+        st.info("상위 30개만 표시됩니다. 필터를 좁혀 검색하세요.")
+
+
+# ════════════════════════════════════════════════════════
+# TAB 3 : 생성 기록 (복구 완료)
+# ════════════════════════════════════════════════════════
+with tab3:
+    st.markdown("### 📋 생성 기록")
+
+    if not st.session_state.history:
+        st.info("아직 생성된 문제가 없습니다.")
+    else:
+        # 전체 통합 다운로드
+        all_combined = ""
+        for i, h in enumerate(st.session_state.history):
+            all_combined += f"\n{'='*70}\n"
+            all_combined += f"[세트 {i+1}] {h['major']} > {h['mid']} > {h['minor']} | 난이도: {h['difficulty']}\n"
+            all_combined += f"{'='*70}\n\n"
+            for r in h["results"]:
+                all_combined += f"【{r['type']} 유형】\n\n{r['text']}\n\n"
+
+        st.download_button(
+            "⬇️ 전체 생성 기록 통합 다운로드 (.txt)",
+            data=all_combined.encode("utf-8"),
+            file_name="전체_생성문제.txt",
+            mime="text/plain",
+            use_container_width=True,
+            key="dl_history_all"  # 🚀 중복 방지 고유 키
+        )
+        st.markdown("---")
+
+        for i, h in enumerate(reversed(st.session_state.history)):
+            idx = len(st.session_state.history) - i
+            label = f"세트 {idx} | {h['major']} > {h['minor']} | {', '.join(h['types'])} | 각 {h['count']}문제"
+            with st.expander(label):
+                for r in h["results"]:
+                    st.markdown(f"**▶ {r['type']} 유형**")
+                    st.markdown(r["text"])
+                    st.markdown("---")
+
+                # 이 세트 개별 다운로드
+                set_text = f"[{h['major']} >
