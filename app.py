@@ -1,13 +1,13 @@
 import streamlit as st
-import json
 import random
 from pathlib import Path
 import google.generativeai as genai
 from openai import OpenAI, AzureOpenAI
 import pandas as pd
+import re
+import time
 
 # ── 🎯 전역 설정: 구글 시트 탭별 GID URL 하드코딩 ────────────────────────
-# (선생님의 시트에서 각 탭을 클릭했을 때 나오는 '주소창의 전체 주소'를 각각 넣어주세요)
 QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=939067680#gid=939067680"
 CONCEPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=0#gid=0"
 
@@ -18,25 +18,9 @@ st.set_page_config(
     layout="wide",
 )
 
-# ── 데이터 로드 함수 ────────────────────────────────────────
 BASE = Path(__file__).parent
 
-# [모드 1] 로컬 JSON 로드 (폴백용)
-@st.cache_data
-def load_json_db():
-    try:
-        with open(BASE / "questions_db.json", encoding="utf-8") as f:
-            q = json.load(f)
-        with open(BASE / "concept_hierarchy.json", encoding="utf-8") as f:
-            c = json.load(f)
-        return q, c
-    except:
-        return [], {}
-
-import re # 함수 위에 이 줄이 없다면 추가해 주세요 (파일 맨 위에 두셔도 됩니다)
-
-# [모드 2] 멀티 탭 구글 시트 다이렉트 로드 (400 에러 원천 차단 및 정규식 추출)
-# [모드 2] 멀티 탭 구글 시트 다이렉트 로드 (완전 정제된 파싱 로직)
+# ── 데이터 로드 함수 (구글 시트 전용) ────────────────────────────────────────
 @st.cache_data(ttl=180)
 def load_gsheets_dual_db(q_url, c_url):
     try:
@@ -46,13 +30,14 @@ def load_gsheets_dual_db(q_url, c_url):
             if sheet_id_match:
                 sheet_id = sheet_id_match.group(1)
                 gid = gid_match.group(1) if gid_match else "0"
-                return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+                # 캐시 무력화 파라미터 포함
+                return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}&dummy={int(time.time())}"
             return url
 
         df_questions = pd.read_csv(convert_to_csv_url(q_url)).fillna('')
         df_concepts = pd.read_csv(convert_to_csv_url(c_url)).fillna('')
         
-        # 🚀 열 이름의 앞뒤 공백을 완벽하게 제거
+        # 열 이름 공백 제거
         df_questions.columns = [str(c).strip() for c in df_questions.columns]
         df_concepts.columns = [str(c).strip() for c in df_concepts.columns]
         
@@ -60,7 +45,7 @@ def load_gsheets_dual_db(q_url, c_url):
             st.error("🚨 기출DB를 제대로 읽어오지 못했습니다. 구글 시트 공유 권한을 확인해 주세요.")
             return [], {}
 
-        # 🚀 '난이도'라는 단어가 포함된 열을 정확히 찾아냅니다.
+        # 난이도 열 탐색
         diff_col = next((col for col in df_questions.columns if '난이도' in col), None)
 
         # 1. 'questions_db' 탭 파싱
@@ -70,7 +55,6 @@ def load_gsheets_dual_db(q_url, c_url):
             if not q_type:
                 continue
                 
-            # 난이도 값 안전하게 추출
             q_diff = ""
             if diff_col:
                 val = str(row.get(diff_col, '')).strip()
@@ -86,7 +70,7 @@ def load_gsheets_dual_db(q_url, c_url):
                 "c": str(row.get('보기', '')).strip(),
                 "a": str(row.get('정답', '')).strip(),
                 "e": str(row.get('해설', '')).strip(),
-                "d": q_diff  # 난이도 저장 완벽 보장
+                "d": q_diff
             })
 
         # 2. 'concept_hierarchy' 탭 파싱
@@ -117,14 +101,6 @@ def load_gsheets_dual_db(q_url, c_url):
 
 # ── 사이드바 ───────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 🗄️ 데이터베이스 모드")
-    db_mode = st.radio(
-        "DB 연결 방식 선택", 
-        ["로컬 JSON (Internal)", "Google Sheets (Cloud)"],
-        label_visibility="collapsed"
-    )
-    
-    st.markdown("---")
     st.markdown("### ⚙️ API 설정")
     raw_api_key = st.text_input(
         "🔑 통합 API Key 입력창", 
@@ -153,11 +129,8 @@ with st.sidebar:
         if "Azure" in detected_platform:
             azure_endpoint = st.text_input("Azure Endpoint URL", placeholder="https://YOUR_RESOURCE.openai.azure.com/")
 
-# ── DB 할당 및 문제 유형 정렬 ──
-if db_mode == "로컬 JSON (Internal)":
-    QUESTIONS, CONCEPTS = load_json_db()
-else:
-    QUESTIONS, CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
+# ── DB 할당 (구글 시트 단일 모드) ──
+QUESTIONS, CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
     
 # 🚀 꼬였던 매핑 로직을 직관적이고 확실하게 수정
 TYPE_DIFF_MAP = {}
