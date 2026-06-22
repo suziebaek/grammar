@@ -302,38 +302,43 @@ with tab1:
 
         # ────────────────────────────────────────────────────────
         st.markdown("---")
-        st.markdown("**📊 난이도 배정 (준비 중)**")
+        st.markdown("**📊 난이도 배정**")
         
-        # 1. 자동/수동 모드 토글 (직관적인 양방향 텍스트 배치)
         st.caption("배정 방식 선택")
         t_col1, t_col2, t_col3 = st.columns([2.5, 1, 6.5])
         with t_col1: 
             st.markdown("<div style='text-align:right; margin-top:4px; font-weight:bold; color:#475569;'>🤖 자동</div>", unsafe_allow_html=True)
         with t_col2: 
-            # 토글 상태 읽기: False면 자동, True면 수동
-            is_manual = st.toggle("모드", value=False, key="dummy_auto_mode", label_visibility="collapsed")
+            is_manual = st.toggle("모드", value=False, key="auto_mode", label_visibility="collapsed")
         with t_col3: 
             st.markdown("<div style='margin-top:4px; font-weight:bold; color:#475569;'>🛠️ 수동</div>", unsafe_allow_html=True)
 
-        # 🚀 [핵심] 수동 모드가 아닐 때(즉, 자동일 때) 하위 요소들을 비활성화 상태로 만듦
         is_disabled = not is_manual
 
-        # 2. 상/중/하 활성화 토글 (시각적 버튼 역할)
         st.caption("난이도 활성화")
         btn_col1, btn_col2, btn_col3 = st.columns(3)
-        with btn_col1: st.toggle("🔴 상", value=True, key="dummy_btn_high", disabled=is_disabled)
-        with btn_col2: st.toggle("🔵 중", value=True, key="dummy_btn_mid", disabled=is_disabled)
-        with btn_col3: st.toggle("🟢 하", value=True, key="dummy_btn_low", disabled=is_disabled)
+        with btn_col1: st.toggle("🔴 상", value=True, key="btn_high", disabled=is_disabled)
+        with btn_col2: st.toggle("🔵 중", value=True, key="btn_mid", disabled=is_disabled)
+        with btn_col3: st.toggle("🟢 하", value=True, key="btn_low", disabled=is_disabled)
         
-        # 3. 상/중/하 숫자 입력창 (더미)
         st.caption("문항 수 할당")
         num_col1, num_col2, num_col3 = st.columns(3)
-        with num_col1: st.number_input("상 (개)", min_value=0, max_value=10, value=3, key="dummy_num_high", disabled=is_disabled)
-        with num_col2: st.number_input("중 (개)", min_value=0, max_value=10, value=4, key="dummy_num_mid", disabled=is_disabled)
-        with num_col3: st.number_input("하 (개)", min_value=0, max_value=10, value=3, key="dummy_num_low", disabled=is_disabled)
+        # 최대값을 20개로 넉넉하게 풀어두었습니다.
+        with num_col1: val_high = st.number_input("상 (개)", min_value=0, max_value=20, value=3, key="num_high", disabled=is_disabled)
+        with num_col2: val_mid = st.number_input("중 (개)", min_value=0, max_value=20, value=4, key="num_mid", disabled=is_disabled)
+        with num_col3: val_low = st.number_input("하 (개)", min_value=0, max_value=20, value=3, key="num_low", disabled=is_disabled)
 
-        # 🚨 생성 개수를 내부적으로 10으로 강제 고정
-        num_per_type = 10 
+        # 🚀 [수정됨] 10개 고정 삭제, 실시간으로 입력값의 합계를 총 생성 개수로 산출!
+        if not is_manual:
+            final_high, final_mid, final_low = 3, 4, 3
+            st.info("🤖 **[자동 모드]** 기본값(상3, 중4, 하3)으로 생성됩니다.")
+        else:
+            final_high, final_mid, final_low = val_high, val_mid, val_low
+            
+        num_per_type = final_high + final_mid + final_low
+        
+        if is_manual:
+            st.success(f"✅ 총 **{num_per_type}개**의 문제가 배정되었습니다.")
         # ────────────────────────────────────────────────────────
 
         st.markdown('</div>', unsafe_allow_html=True)
@@ -357,8 +362,12 @@ with tab1:
 
 
     # ── 생성 실행 ─────────────────────────────────────────
+# ── 생성 실행 ─────────────────────────────────────────
     if generate_btn:
-        if not raw_api_key:
+        # 🚀 [수정됨] 10개 강제 확인 에러 삭제, 대신 합계가 0개일 때만 막습니다.
+        if num_per_type == 0:
+            st.error("⚠️ 생성할 문제 개수가 0개입니다. 난이도별 문항 수를 1개 이상 배정해주세요.")
+        elif not raw_api_key:
             st.error("⚠️ 사이드바에 통합 API Key를 입력해주세요.")
         elif not selected_types:
             st.error("⚠️ 문제 유형을 하나 이상 선택해주세요.")
@@ -377,11 +386,7 @@ with tab1:
                 is_google_native = True
             elif len(raw_api_key) == 32 or "azure" in raw_api_key.lower():
                 try:
-                    client = AzureOpenAI(
-                        api_key=raw_api_key,
-                        api_version="2024-02-15-preview", 
-                        azure_endpoint=azure_endpoint
-                    )
+                    client = AzureOpenAI(api_key=raw_api_key, api_version="2024-02-15-preview", azure_endpoint=azure_endpoint)
                 except NameError:
                     st.error("Azure 연결을 위한 엔드포인트 URL을 입력해주세요.")
             else:
@@ -399,17 +404,17 @@ with tab1:
                     for i, q in enumerate(ref_samples)
                 ])
 
-# 🚀 수정됨: Scheme B 로직 (통합개념일 경우 AI에게 강력한 골고루 출제 지시 추가)
-# (프롬프트 윗부분 로직은 그대로 유지)
                 integration_rule = ""
                 if selected_minor_label == "통합개념":
                     integration_rule = "7. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
 
-                # 🚀 파이썬이 리스트를 만들어 AI에게 할당해줌
+                # 🚀 파이썬이 UI의 값을 그대로 읽어와 배정표를 찍어냅니다. (예: 8개면 8개치만 생성)
                 diff_targets = (["상"] * final_high) + (["중"] * final_mid) + (["하"] * final_low)
                 q_assignments = ""
                 for i, d in enumerate(diff_targets):
                     q_assignments += f"【문제 {i+1}】 타겟 난이도: [{d}]\n"
+
+                # (이하 prompt = f"""...""" 프롬프트 텍스트 부분은 동일하게 유지하시면 됩니다!)
 
                 prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
 
