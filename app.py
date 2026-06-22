@@ -323,22 +323,21 @@ with tab1:
         
         st.caption("문항 수 할당")
         num_col1, num_col2, num_col3 = st.columns(3)
-        # 최대값을 20개로 넉넉하게 풀어두었습니다.
         with num_col1: val_high = st.number_input("상 (개)", min_value=0, max_value=20, value=3, key="num_high", disabled=is_disabled)
         with num_col2: val_mid = st.number_input("중 (개)", min_value=0, max_value=20, value=4, key="num_mid", disabled=is_disabled)
         with num_col3: val_low = st.number_input("하 (개)", min_value=0, max_value=20, value=3, key="num_low", disabled=is_disabled)
 
-        # 🚀 [수정됨] 10개 고정 삭제, 실시간으로 입력값의 합계를 총 생성 개수로 산출!
         if not is_manual:
             final_high, final_mid, final_low = 3, 4, 3
-            st.info("🤖 **[자동 모드]** 기본값(상3, 중4, 하3)으로 생성됩니다.")
+            st.info("🤖 **[자동 모드]** 기본값(상3, 중4, 하3)으로 배정됩니다.")
         else:
             final_high, final_mid, final_low = val_high, val_mid, val_low
             
-        num_per_type = final_high + final_mid + final_low
+        # 🚀 [수정] 변수명을 직관적으로 바꾸고 안내 문구를 '총합'의 의미로 변경
+        total_num = final_high + final_mid + final_low
         
         if is_manual:
-            st.success(f"✅ 총 **{num_per_type}개**의 문제가 배정되었습니다.")
+            st.success(f"✅ 선택한 유형에 **총 {total_num}개**의 문제가 골고루 배정됩니다.")
         # ────────────────────────────────────────────────────────
 
         st.markdown('</div>', unsafe_allow_html=True)
@@ -361,11 +360,11 @@ with tab1:
         st.rerun()
 
 
-    # ── 생성 실행 ─────────────────────────────────────────
 # ── 생성 실행 ─────────────────────────────────────────
     if generate_btn:
-        # 🚀 [수정됨] 10개 강제 확인 에러 삭제, 대신 합계가 0개일 때만 막습니다.
-        if num_per_type == 0:
+        total_num = final_high + final_mid + final_low
+        
+        if total_num == 0:
             st.error("⚠️ 생성할 문제 개수가 0개입니다. 난이도별 문항 수를 1개 이상 배정해주세요.")
         elif not raw_api_key:
             st.error("⚠️ 사이드바에 통합 API Key를 입력해주세요.")
@@ -392,8 +391,23 @@ with tab1:
             else:
                 client = OpenAI(api_key=raw_api_key)
 
+            # 🚀 [핵심 로직] 총 난이도 리스트를 만들고, 선택된 문제 유형들에 '라운드 로빈'으로 분배합니다.
+            diff_targets = (["상"] * final_high) + (["중"] * final_mid) + (["하"] * final_low)
+            
+            allocations = {t: [] for t in selected_types}
+            for i, diff in enumerate(diff_targets):
+                # 10개의 카드를 7개의 유형 바구니에 순서대로 하나씩 던져 넣습니다.
+                allocations[selected_types[i % len(selected_types)]].append(diff)
+
             for idx, qtype in enumerate(selected_types):
-                progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 생성 중...")
+                type_diffs = allocations[qtype]
+                
+                # 🚀 이 유형에 배정된 문항이 0개라면 AI 호출을 생략하고 넘어갑니다.
+                if not type_diffs:
+                    continue 
+                    
+                num_for_this_type = len(type_diffs)
+                progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {num_for_this_type}문제 생성 중...")
 
                 type_matched = [q for q in QUESTIONS if q["t"] == qtype]
                 unit_matched = [q for q in QUESTIONS if selected_major in q["u"]]
@@ -408,13 +422,10 @@ with tab1:
                 if selected_minor_label == "통합개념":
                     integration_rule = "7. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
 
-                # 🚀 파이썬이 UI의 값을 그대로 읽어와 배정표를 찍어냅니다. (예: 8개면 8개치만 생성)
-                diff_targets = (["상"] * final_high) + (["중"] * final_mid) + (["하"] * final_low)
+                # 🚀 이 유형에게만 할당된 배정표 작성
                 q_assignments = ""
-                for i, d in enumerate(diff_targets):
+                for i, d in enumerate(type_diffs):
                     q_assignments += f"【문제 {i+1}】 타겟 난이도: [{d}]\n"
-
-                # (이하 prompt = f"""...""" 프롬프트 텍스트 부분은 동일하게 유지하시면 됩니다!)
 
                 prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
 
@@ -430,7 +441,7 @@ with tab1:
 
 === 출제 조건 ===
 - 문제 유형: {qtype}
-- 총 생성 개수: {num_per_type}개
+- 총 생성 개수: {num_for_this_type}개
 - 추가 요청: {extra if extra else '없음'}
 
 === ★ [역할 C] 난이도 평가 척도 및 배정표 (필수 적용) ★ ===
@@ -452,7 +463,7 @@ D. 예외성 (규칙의 특수성)
 - 🔴 [상] 난이도: 총점 6~8점
 
 === ★ [역할 D] 문항별 난이도 배정표 (명령) ★ ===
-반드시 아래 지정된 번호와 난이도 타겟(점수 구간)에 맞춰서 정확히 {num_per_type}문제를 창작하세요.
+반드시 아래 지정된 번호와 난이도 타겟(점수 구간)에 맞춰서 정확히 {num_for_this_type}문제를 창작하세요.
 {q_assignments}
 
 === ★ 출제 규칙 (엄격 준수) ===
@@ -504,18 +515,18 @@ D. 예외성 (규칙의 특수성)
 
                     batch_results.append({"type": qtype, "text": result_text})
                 except Exception as e:
-                    # 에러 발생 시 숨기지 않고 무조건 텍스트로 저장하여 화면에 띄웁니다!
                     batch_results.append({"type": qtype, "text": f"[오류] 출제 엔진 통신 실패: {str(e)}"})
 
             progress.progress(1.0, text="✅ 생성 완료!")
 
+            # 🚀 [히스토리 저장] 세트명에 직관적인 총 개수와 비율 기록
             entry = {
                 "major": selected_major,
                 "mid": selected_mid,
                 "minor": selected_minor_label,
-                "difficulty": diff,
+                "difficulty": f"총 {total_num}문제 (상{final_high}/중{final_mid}/하{final_low})",
                 "types": selected_types,
-                "count": num_per_type,
+                "count": total_num,
                 "results": batch_results,
             }
             st.session_state.history.append(entry)
