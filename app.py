@@ -495,7 +495,7 @@ D. 예외성 (규칙의 특수성)
 
 ---
 """
-                try:
+try:
                     if is_google_native:
                         gemini_model_name = "gemini-1.5-pro" if "gemini" in selected_model.lower() else "gemini-1.5-pro"
                         model = genai.GenerativeModel(gemini_model_name)
@@ -513,8 +513,13 @@ D. 예외성 (규칙의 특수성)
                         )
                         result_text = response.choices[0].message.content
 
-                    batch_results.append({"type": qtype, "text": result_text})
+                    # 🚀 [추가] AI가 응답을 거부하거나 None을 반환했을 때의 안전장치
+                    if not result_text:
+                        result_text = "[오류] AI 엔진이 빈 응답을 반환했습니다. (보안 필터링 또는 일시적 통신 오류)"
+
+                    batch_results.append({"type": qtype, "text": str(result_text)})
                 except Exception as e:
+                    # 에러가 나더라도 앱이 뻗지 않고 텍스트로 기록한 뒤 "다음 유형" 생성을 계속 진행합니다!
                     batch_results.append({"type": qtype, "text": f"[오류] 출제 엔진 통신 실패: {str(e)}"})
 
             progress.progress(1.0, text="✅ 생성 완료!")
@@ -533,7 +538,7 @@ D. 예외성 (규칙의 특수성)
             st.session_state.pending = [entry]
             st.rerun()
 
-    # ── 결과 표시 (중복 에러 원천 차단) ─────────────────────────────────────────
+# ── 결과 표시 (중복 에러 원천 차단) ─────────────────────────────────────────
     if st.session_state.pending:
         entry = st.session_state.pending[-1]
         st.markdown("---")
@@ -541,12 +546,15 @@ D. 예외성 (규칙의 특수성)
 
         for res in entry["results"]:
             with st.expander(f"📌 [{res['type']}] 유형 문제", expanded=True):
-                raw = res["text"]
+                
+                # 🚀 [수정] 텍스트가 None이더라도 무조건 문자열로 취급하여 화면 뻗음 방지!
+                raw = str(res.get("text", ""))
                 
                 # 통신 에러가 발생하면 붉은 에러창 띄우기
                 if raw.startswith("[오류]"):
-                    st.error(raw)
-                    continue
+                    st.error("⚠️ 이 유형의 문제를 생성하는 중 통신 오류가 발생했습니다.")
+                    st.warning(raw) # 어떤 오류인지 상세 내용 표시
+                    continue # 앱을 끄지 않고 다음 문제 유형을 화면에 계속 그립니다!
                 
                 problems = raw.split("【문제")
                 
