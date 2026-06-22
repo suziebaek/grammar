@@ -495,7 +495,7 @@ D. 예외성 (규칙의 특수성)
 
 ---
 """
-try:
+                try:
                     if is_google_native:
                         gemini_model_name = "gemini-1.5-pro" if "gemini" in selected_model.lower() else "gemini-1.5-pro"
                         model = genai.GenerativeModel(gemini_model_name)
