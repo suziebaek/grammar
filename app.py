@@ -380,12 +380,16 @@ with tab1:
             ref_pool = QUESTIONS
         st.info(f"📎 참고 기출: {len(ref_pool)}문제 ('{selected_major}' 관련)")
             
-    # ── 생성 버튼 ─────────────────────────────────────────
+# ── 생성 버튼 ─────────────────────────────────────────
     st.markdown("---")
-    gen_col1, gen_col2 = st.columns([3, 1])
+    
+    # 🚀 [수정] 3등분하여 버튼 옆에 토글 스위치 배치
+    gen_col1, gen_col2, gen_col3 = st.columns([2.5, 1.5, 1])
     with gen_col1:
         generate_btn = st.button("🚀 문제 생성하기", use_container_width=True)
     with gen_col2:
+        use_validator = st.toggle("🛡️ LLM 검증기 작동", value=True, help="AI가 논리적 오류를 한 번 더 검수합니다. 끄면 생성 속도가 2배 빨라집니다.")
+    with gen_col3:
         clear_btn = st.button("🗑️ 결과 초기화", use_container_width=True)
 
     if clear_btn:
