@@ -1,7 +1,8 @@
 import json
 import re
 
-def validate_question_llm(full_text, client, is_google_native, target_model):
+# 🚀 [수정] 파라미터 맨 끝에 use_llm=True 를 추가합니다.
+def validate_question_llm(full_text, client, is_google_native, target_model, use_llm=True):
     """
     LLM을 이용해 생성된 문법 문제의 논리적 모순을 검증합니다.
     반환값: (is_valid: bool, feedback: str)
@@ -17,6 +18,11 @@ def validate_question_llm(full_text, client, is_google_native, target_model):
         
     if "[정답 해설]" not in full_text or "[오답 분석]" not in full_text:
         return False, "해설 양식([정답 해설], [오답 분석])이 누락되었습니다."
+
+    # 🚀 [추가] 토글이 꺼져있으면 여기서 즉시 합격 처리하고 LLM 호출 생략!
+    if not use_llm:
+        return True, "하드 룰 통과 (LLM 검증 생략)"
+
 
     # ── 2단계: LLM 기반 정밀 논리 검증 (LLM-as-a-Judge) ──
     val_prompt = f"""당신은 대한민국 최고 수준의 문법 문제 검수자(Validator)입니다.
