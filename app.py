@@ -6,6 +6,39 @@ from openai import OpenAI, AzureOpenAI
 import pandas as pd
 import re
 import time
+import io
+from docx import Document # 🚀 [추가] 워드 다운로드를 위한 라이브러리 (pip install python-docx 필요)
+
+# ── 🚀 [추가] 난이도 세부 조합 (A, B, C, D) 81가지 경우의 수 사전 계산 ──
+ALL_COMBS = [(a, b, c, d) for a in (0, 1, 2) for b in (0, 1, 2) for c in (0, 1, 2) for d in (0, 1, 2)]
+EASY_COMBS = [c for c in ALL_COMBS if sum(c) <= 2]       # 하: 0~2점 (15가지)
+MID_COMBS = [c for c in ALL_COMBS if 3 <= sum(c) <= 5]   # 중: 3~5점 (45가지)
+HARD_COMBS = [c for c in ALL_COMBS if sum(c) >= 6]       # 상: 6~8점 (21가지)
+
+# ── 🚀 [추가] 워드 문서(.docx) 생성 헬퍼 함수 ──
+def create_word_document(history_data, is_multiple=False):
+    doc = Document()
+    if not is_multiple:
+        entry = history_data
+        doc.add_heading(f"생성 정보: {entry['major']} > {entry['mid']} > {entry['minor']}", 0)
+        doc.add_paragraph(f"난이도: {entry['difficulty']}")
+        for r in entry["results"]:
+            doc.add_heading(f"【{r['type']} 유형】", level=1)
+            doc.add_paragraph(r['text'])
+    else:
+        doc.add_heading("전체 생성 문제 통합본", 0)
+        for i, h in enumerate(history_data):
+            doc.add_heading(f"[세트 {i+1}] {h['major']} > {h['mid']} > {h['minor']}", level=1)
+            doc.add_paragraph(f"난이도: {h['difficulty']}")
+            for r in h["results"]:
+                doc.add_heading(f"【{r['type']} 유형】", level=2)
+                doc.add_paragraph(r['text'])
+    bio = io.BytesIO()
+    doc.save(bio)
+    return bio.getvalue()
+
+# ── 🎯 전역 설정: 구글 시트 탭별 GID URL 하드코딩 ────────────────────────
+# (이하 기존 코드 동일: QUESTIONS_SHEET_URL = ... )
 
 # ── 🎯 전역 설정: 구글 시트 탭별 GID URL 하드코딩 ────────────────────────
 QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=939067680#gid=939067680"
@@ -391,18 +424,20 @@ with tab1:
             else:
                 client = OpenAI(api_key=raw_api_key)
 
-            # 🚀 [핵심 로직] 총 난이도 리스트를 만들고, 선택된 문제 유형들에 '라운드 로빈'으로 분배합니다.
-            diff_targets = (["상"] * final_high) + (["중"] * final_mid) + (["하"] * final_low)
+# 🚀 [수정 3] 기존의 단순 "상/중/하" 리스트 대신, "레벨 + 무작위 상세 조합" 딕셔너리로 할당표 생성!
+            diff_targets = []
+            for _ in range(final_high): diff_targets.append({"level": "상", "comb": random.choice(HARD_COMBS)})
+            for _ in range(final_mid): diff_targets.append({"level": "중", "comb": random.choice(MID_COMBS)})
+            for _ in range(final_low): diff_targets.append({"level": "하", "comb": random.choice(EASY_COMBS)})
             
             allocations = {t: [] for t in selected_types}
-            for i, diff in enumerate(diff_targets):
-                # 10개의 카드를 7개의 유형 바구니에 순서대로 하나씩 던져 넣습니다.
-                allocations[selected_types[i % len(selected_types)]].append(diff)
+            for i, diff_dict in enumerate(diff_targets):
+                # 라운드 로빈 분배는 그대로 유지
+                allocations[selected_types[i % len(selected_types)]].append(diff_dict)
 
             for idx, qtype in enumerate(selected_types):
                 type_diffs = allocations[qtype]
                 
-                # 🚀 이 유형에 배정된 문항이 0개라면 AI 호출을 생략하고 넘어갑니다.
                 if not type_diffs:
                     continue 
                     
@@ -412,7 +447,9 @@ with tab1:
                 type_matched = [q for q in QUESTIONS if q["t"] == qtype]
                 unit_matched = [q for q in QUESTIONS if selected_major in q["u"]]
                 qtype_pool = type_matched if len(type_matched) >= 3 else (unit_matched if unit_matched else QUESTIONS)
-                ref_samples = random.sample(qtype_pool, min(5, len(qtype_pool)))
+                
+                # 🚀 [수정 2] 참고 기출문제 예시를 최대 5개 -> 8개로 확대
+                ref_samples = random.sample(qtype_pool, min(8, len(qtype_pool)))
                 ref_text = "\n\n".join([
                     f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}\n해설: {q['e']}"
                     for i, q in enumerate(ref_samples)
@@ -422,10 +459,12 @@ with tab1:
                 if selected_minor_label == "통합개념":
                     integration_rule = "7. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
 
-                # 🚀 이 유형에게만 할당된 배정표 작성
+                # 🚀 [핵심] 이 유형에 배정된 문항마다 구체적인 A,B,C,D 값을 프롬프트에 꽂아줌
                 q_assignments = ""
-                for i, d in enumerate(type_diffs):
-                    q_assignments += f"【문제 {i+1}】 타겟 난이도: [{d}]\n"
+                for i, d_dict in enumerate(type_diffs):
+                    lvl = d_dict["level"]
+                    a, b, c, d = d_dict["comb"]
+                    q_assignments += f"【문제 {i+1}】 타겟 난이도: [{lvl}] (상세 조건: A={a}점, B={b}점, C={c}점, D={d}점)\n"
 
                 prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
 
@@ -457,13 +496,9 @@ C. 오답 변별력 (매력적인 오답의 개수)
 D. 예외성 (규칙의 특수성)
    - 0점: 기본 규칙 1개만 매칭 / 1점: 기본 규칙 + 예외 규칙 1개 매칭 / 2점: 예외 규칙만 매칭, 또는 예외의 예외
 
-[난이도별 타겟 점수 구간]
-- 🟢 [하] 난이도: 총점 0~2점
-- 🔵 [중] 난이도: 총점 3~5점
-- 🔴 [상] 난이도: 총점 6~8점
-
 === ★ [역할 D] 문항별 난이도 배정표 (명령) ★ ===
-반드시 아래 지정된 번호와 난이도 타겟(점수 구간)에 맞춰서 정확히 {num_for_this_type}문제를 창작하세요.
+반드시 아래 지정된 번호와 난이도 타겟(점수 구간) 및 [상세 조건]에 맞춰서 정확히 {num_for_this_type}문제를 창작하세요.
+AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B, C, D 상세 조건을 100% 그대로 적용하여 문제를 설계하세요.
 {q_assignments}
 
 === ★ 출제 규칙 (엄격 준수) ===
@@ -491,7 +526,7 @@ D. 예외성 (규칙의 특수성)
 [해설]
 [정답 해설]: 정답인 이유를 문법적으로 명확히 설명.
 [오답 분석]: 나머지 선지들이 왜 틀렸는지(혹은 맞았는지) 각각 번호를 매겨 명확히 분석.
-[난이도 산출 내역]: 타겟 [(상/중/하)] / A(점)+B(점)+C(점)+D(점) = 총 (점)점
+[난이도 산출 내역]: 타겟 [(상/중/하)] / 지시받은 A(점)+B(점)+C(점)+D(점) = 총 (점)점
 
 ---
 """
@@ -599,21 +634,34 @@ D. 예외성 (규칙의 특수성)
                 if not valid_problem_found:
                     st.markdown(raw.replace("\n", "  \n"))
 
-        # 다운로드 버튼
+# 🚀 [수정 1] 다운로드 버튼 (텍스트 + 워드 2가지 옵션 제공)
         combined = f"[생성 정보]\n단원: {entry['major']} > {entry['mid']} > {entry['minor']}\n난이도: {entry['difficulty']}\n\n"
         combined += "\n\n" + "="*60 + "\n\n".join(
             f"【{r['type']} 유형】\n\n{r['text']}" for r in entry["results"]
         )
-        st.download_button(
-            "⬇️ 생성된 문제 전체 다운로드 (.txt)",
-            data=combined.encode("utf-8"),
-            file_name=f"{entry['major']}_{entry['minor']}_문제.txt",
-            mime="text/plain",
-            key=f"dl_pending_tab1_safe_{len(st.session_state.history)}"
-        )
+        
+        dl_col1, dl_col2 = st.columns(2)
+        with dl_col1:
+            st.download_button(
+                "⬇️ 전체 문제 다운로드 (.txt)",
+                data=combined.encode("utf-8"),
+                file_name=f"{entry['major']}_{entry['minor']}_문제.txt",
+                mime="text/plain",
+                use_container_width=True,
+                key=f"dl_pending_txt_{len(st.session_state.history)}"
+            )
+        with dl_col2:
+            st.download_button(
+                "📄 전체 문제 다운로드 (.docx)",
+                data=create_word_document(entry, is_multiple=False),
+                file_name=f"{entry['major']}_{entry['minor']}_문제.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+                key=f"dl_pending_docx_{len(st.session_state.history)}"
+            )
 
 # ════════════════════════════════════════════════════════
-# TAB 2 : 기출 문제 탐색 (복구 완료)
+# TAB 2 : 기출 문제 탐색 
 # ════════════════════════════════════════════════════════
 with tab2:
     st.markdown("### 📚 기출 문제 탐색")
@@ -655,7 +703,7 @@ with tab2:
 
 
 # ════════════════════════════════════════════════════════
-# TAB 3 : 생성 기록 (복구 완료)
+# TAB 3 : 생성 기록
 # ════════════════════════════════════════════════════════
 with tab3:
     st.markdown("### 📋 생성 기록")
@@ -663,7 +711,7 @@ with tab3:
     if not st.session_state.history:
         st.info("아직 생성된 문제가 없습니다.")
     else:
-        # 전체 통합 다운로드
+        # 🚀 [수정 1] 전체 통합 다운로드 (txt / docx 분리)
         all_combined = ""
         for i, h in enumerate(st.session_state.history):
             all_combined += f"\n{'='*70}\n"
@@ -672,14 +720,25 @@ with tab3:
             for r in h["results"]:
                 all_combined += f"【{r['type']} 유형】\n\n{r['text']}\n\n"
 
-        st.download_button(
-            "⬇️ 전체 생성 기록 통합 다운로드 (.txt)",
-            data=all_combined.encode("utf-8"),
-            file_name="전체_생성문제.txt",
-            mime="text/plain",
-            use_container_width=True,
-            key="dl_history_all"  # 🚀 중복 방지 고유 키
-        )
+        c1, c2 = st.columns(2)
+        with c1:
+            st.download_button(
+                "⬇️ 전체 기록 통합 다운로드 (.txt)",
+                data=all_combined.encode("utf-8"),
+                file_name="전체_생성문제.txt",
+                mime="text/plain",
+                use_container_width=True,
+                key="dl_history_all_txt"
+            )
+        with c2:
+            st.download_button(
+                "📄 전체 기록 통합 다운로드 (.docx)",
+                data=create_word_document(st.session_state.history, is_multiple=True),
+                file_name="전체_생성문제.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+                key="dl_history_all_docx"
+            )
         st.markdown("---")
 
         for i, h in enumerate(reversed(st.session_state.history)):
@@ -691,13 +750,26 @@ with tab3:
                     st.markdown(r["text"])
                     st.markdown("---")
 
-                # 이 세트 개별 다운로드
+                # 개별 세트 다운로드
                 set_text = f"[{h['major']} > {h['mid']} > {h['minor']}] 난이도: {h['difficulty']}\n\n"
                 set_text += "\n\n".join(f"【{r['type']}】\n\n{r['text']}" for r in h["results"])
-                st.download_button(
-                    f"⬇️ 세트 {idx} 다운로드",
-                    data=set_text.encode("utf-8"),
-                    file_name=f"세트{idx}_{h['minor']}.txt",
-                    mime="text/plain",
-                    key=f"dl_history_set_{idx}",  # 🚀 중복 방지 고유 키
-                )
+                
+                sc1, sc2 = st.columns(2)
+                with sc1:
+                    st.download_button(
+                        f"⬇️ 세트 {idx} 다운로드 (.txt)",
+                        data=set_text.encode("utf-8"),
+                        file_name=f"세트{idx}_{h['minor']}.txt",
+                        mime="text/plain",
+                        use_container_width=True,
+                        key=f"dl_history_set_txt_{idx}",
+                    )
+                with sc2:
+                    st.download_button(
+                        f"📄 세트 {idx} 다운로드 (.docx)",
+                        data=create_word_document(h, is_multiple=False),
+                        file_name=f"세트{idx}_{h['minor']}.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        use_container_width=True,
+                        key=f"dl_history_set_docx_{idx}",
+                    )
