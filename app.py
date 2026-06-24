@@ -615,17 +615,17 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                         print(f"통신 에러로 재시도 진행: {e}")
                         pass # 통신 에러가 나도 while 루프가 알아서 다시 시도합니다.
 
-                # 🚀 While 루프 (최대 3회) 종료 후 최종 결과물 병합
+# 🚀 While 루프 (최대 3회) 종료 후 최종 결과물 병합
                 if valid_problems_texts:
                     final_text = "\n\n".join(valid_problems_texts)
                     
-                    # 3번이나 시도했는데도 개수를 못 채웠을 경우의 안내 문구
                     if remaining_specs:
                         final_text += f"\n\n--- \n⚠️ **[시스템 안내]** 최대 3회 재생성을 시도했으나, {len(remaining_specs)}문항은 내부 논리 검증(정답 불일치 등)을 통과하지 못해 누락되었습니다."
                         
                     batch_results.append({"type": qtype, "text": final_text})
                 else:
-                    batch_results.append({"type": qtype, "text": "[오류] 3회의 자체 검증 및 재생성을 시도했으나 유효한 논리의 문제를 1개도 생성하지 못했습니다. 조건을 변경해 보세요."})
+                    # 🚀 [수정] [오류] 대신 [검증실패]로 시작하여 '통신 오류' UI가 뜨지 않게 합니다!
+                    batch_results.append({"type": qtype, "text": "[검증실패] 3회의 자체 검증 및 재생성을 시도했으나 유효한 논리의 문제를 1개도 생성하지 못했습니다."})
 
             progress.progress(1.0, text="✅ 생성 및 자동 검증 완료!")
 
@@ -654,15 +654,21 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
         for res in entry["results"]:
             with st.expander(f"📌 [{res['type']}] 유형 문제", expanded=True):
                 
-                # 🚀 [수정] 텍스트가 None이더라도 무조건 문자열로 취급하여 화면 뻗음 방지!
+  # 🚀 텍스트가 None이더라도 무조건 문자열로 취급하여 화면 뻗음 방지!
                 raw = str(res.get("text", ""))
                 
                 # 통신 에러가 발생하면 붉은 에러창 띄우기
                 if raw.startswith("[오류]"):
                     st.error("⚠️ 이 유형의 문제를 생성하는 중 통신 오류가 발생했습니다.")
-                    st.warning(raw) # 어떤 오류인지 상세 내용 표시
-                    continue # 앱을 끄지 않고 다음 문제 유형을 화면에 계속 그립니다!
+                    st.warning(raw)
+                    continue 
                 
+                # 🚀 [추가] 3회 검증 실패로 누락된 경우 전용 UI 표시
+                if raw.startswith("[검증실패]"):
+                    st.error("⚠️ 3회의 자동 재생성에도 논리적 검증(정답 불일치 등)을 통과하지 못해 누락되었습니다.")
+                    st.warning("팁: 프롬프트가 이 유형(예: 개수 고르기)의 포맷을 소화하기 어려워할 수 있습니다. LLM 검증기 토글을 끄고 생성해 보세요.")
+                    continue
+
                 problems = raw.split("【문제")
                 
                 # AI가 양식을 지키지 못했을 때 원본 무조건 보여주기
