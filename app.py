@@ -544,7 +544,7 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                         response = client.chat.completions.create(
                             model=target_model,
                             messages=[{"role": "user", "content": prompt}],
-                            temperature=0.75
+                            temperature=0.75,
                             max_tokens=7000
                         )
                         result_text = response.choices[0].message.content
