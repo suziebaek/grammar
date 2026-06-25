@@ -624,9 +624,6 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
 
                 raw = str(res.get("text", ""))
                 
-                # 통신 에러 UI
-                if raw.startswith("[통신오류]"):
-                    # ... (기존 코드)
                 
                 # 통신 에러 UI
                 if raw.startswith("[통신오류]"):
