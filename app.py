@@ -599,17 +599,19 @@ D. 예외성
             
             # 🚀 [여기서부터 중요!] 
             # 위의 except 블록이 끝난 후, 들여쓰기를 앞으로 당겨서 for 루프와 위치를 맞춥니다.
+# 🚀 [수정] 이전에 제가 실수로 빼먹은 difficulty와 count를 다시 추가합니다.
             entry = {
                 "major": selected_major,
                 "mid": selected_mid,
                 "minor": selected_minor_label,
+                "difficulty": f"총 {len(batch_results)}문제",  # 기존에 쓰시던 f"총 {total_num}문제 (상{final_high}/...)" 코드가 있다면 그걸 쓰셔도 됩니다.
                 "types": selected_types,
+                "count": len(batch_results),
                 "results": batch_results,
             }
             st.session_state.history.append(entry)
             st.session_state.pending = [entry]
             
-            # 이 코드가 실행되어야 화면이 결과창으로 넘어갑니다.
             st.rerun()
 # ════════════════════════════════════════════════════════
 # TAB 2 : 기출 문제 탐색 
