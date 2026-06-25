@@ -387,7 +387,7 @@ with tab1:
     with gen_col1:
         generate_btn = st.button("🚀 문제 생성하기", use_container_width=True)
     with gen_col2:
-        use_validator = st.toggle("🛡️ LLM 검증기 작동", value=True, help="AI가 논리적 오류를 검수합니다.")
+        use_validator = st.toggle("🛡️ LLM 검증기 작동", value=False, help="AI가 논리적 오류를 검수합니다.")
     with gen_col3:
         clear_btn = st.button("🗑️ 결과 초기화", use_container_width=True)
 
