@@ -533,8 +533,9 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                 # ... (이 앞부분은 기존 코드 그대로 두세요) ...
 
 # 4. 생성 및 배치 검증 (반복 없음)
+# [생성 및 배치 검증 블록 시작]
                 try:
-                    # [생성 호출]
+                    # 1. 생성 호출 (생략 가능)
                     if is_google_native:
                         model = genai.GenerativeModel("gemini-3.1-pro-preview")
                         response = model.generate_content(prompt)
@@ -548,13 +549,11 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                         )
                         result_text = response.choices[0].message.content
 
-                    # [결과 쪼개기]
+                    # 2. 결과 처리 및 검증
                     problems = result_text.split("【문제")
                     
-                    # [수정] 검증기 호출 여부 확인 (조건문 추가)
-                    batch_feedback = {}  # 기본값 초기화
                     if use_validator:
-                        st.write("DEBUG: 검증기 호출 시작...") 
+                        st.write("DEBUG: 검증기 호출 시작...")
                         batch_feedback = validate_batch_llm(
                             full_text=result_text,
                             client=client,
@@ -564,21 +563,13 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                         )
                         st.write("DEBUG: 검증기 호출 완료.")
                     else:
-                        st.write("DEBUG: 검증기 사용 안 함 (건너뜀)")
-                    
- # [결과 저장 루프]
-                    st.write(f"DEBUG: 처리할 문제 조각 개수: {len(problems)-1}개") # 문제 개수 확인
-                    
+                        batch_feedback = {}
+
+                    # 3. 결과 저장
                     for i, prob_text in enumerate(problems[1:]):
-                        st.write(f"DEBUG: {i+1}번째 문제 처리 시작...") # 루프 진입 확인
                         prob_text = prob_text.strip()
-                        if not prob_text: 
-                            st.write(f"DEBUG: {i+1}번째 문제가 비어있어 건너뜀")
-                            continue
-                        
+                        if not prob_text: continue
                         full_text = "【문제" + prob_text
-                        
-                        # 배지 검증 결과 매칭
                         is_valid, feedback = batch_feedback.get(i+1, (True, "PASS"))
                         
                         batch_results.append({
@@ -587,9 +578,34 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                             "is_valid": is_valid, 
                             "feedback": feedback
                         })
-                        st.write(f"DEBUG: {i+1}번째 문제 저장 완료.") # 저장 완료 확인
-                    
-                    st.write("DEBUG: 모든 루프 정상 종료.") # 루프 탈출 확인
+
+                except Exception as e:
+                    # [예외 처리] 
+                    batch_results.append({
+                        "type": qtype, 
+                        "text": f"[통신오류] {str(e)}", 
+                        "is_valid": False, 
+                        "feedback": "통신 실패"
+                    })
+                # [여기까지가 try-except 블록입니다]
+
+            # [여기서부터는 for 루프 밖이거나, for 루프의 다음 순번입니다]
+            # [기존의 entry 저장 로직]
+            entry = {
+                "major": selected_major,
+                "mid": selected_mid,
+                "minor": selected_minor_label,
+                "difficulty": f"총 {total_num}문제 (상{final_high}/중{final_mid}/하{final_low})",
+                "types": selected_types,
+                "count": total_num,
+                "results": batch_results,
+            }
+            st.session_state.history.append(entry)
+            st.session_state.pending = [entry]
+            
+            # [이제 여기서 if문이 나옵니다 - 밖으로 완전히 탈출한 상태!]
+            if st.session_state.pending:
+                st.rerun()
     # ── 결과 표시 ─────────────────────────────────────────
     if st.session_state.pending:
         entry = st.session_state.pending[-1]
