@@ -550,51 +550,60 @@ D. 예외성
                 # ... (이 앞부분은 기존 코드 그대로 두세요) ...
 
 # 4. 생성 및 배치 검증 (반복 없음)
-# [생성 및 배치 검증 블록 시작]
-                try:
-                    # 1. 생성 호출 (생략 가능)
-                    if is_google_native:
-                        model = genai.GenerativeModel("gemini-3.1-pro-preview")
-                        response = model.generate_content(prompt)
-                        result_text = response.text
-                    else:
-                        response = client.chat.completions.create(
-                            model=selected_model,
-                            messages=[{"role": "user", "content": prompt}],
-                            temperature=0.75,
-                            max_tokens=7000
-                        )
-                        result_text = response.choices[0].message.content
+            try:
+                # [생성 호출]
+                if is_google_native:
+                    model = genai.GenerativeModel("gemini-3.1-pro-preview")
+                    response = model.generate_content(prompt)
+                    result_text = response.text
+                else:
+                    response = client.chat.completions.create(
+                        model=selected_model,
+                        messages=[{"role": "user", "content": prompt}],
+                        temperature=0.75,
+                        max_tokens=7000
+                    )
+                    result_text = response.choices[0].message.content
 
-                    # 2. 결과 처리 및 검증
-                    problems = result_text.split("【문제")
+                # [결과 쪼개기]
+                problems = result_text.split("【문제")
+                
+                # [검증]
+                if use_validator:
+                    st.write("DEBUG: 검증기 호출 시작...")
+                    batch_feedback = validate_batch_llm(
+                        full_text=result_text,
+                        client=client,
+                        is_google_native=is_google_native,
+                        target_model="google/gemini-3.1-pro-preview",
+                        use_llm=use_validator
+                    )
+                    st.write("DEBUG: 검증기 호출 완료.")
+                else:
+                    batch_feedback = {}
+                
+                # [결과 저장]
+                for i, prob_text in enumerate(problems[1:]):
+                    prob_text = prob_text.strip()
+                    if not prob_text: continue
+                    full_text = "【문제" + prob_text
                     
-                    if use_validator:
-                        st.write("DEBUG: 검증기 호출 시작...")
-                        batch_feedback = validate_batch_llm(
-                            full_text=result_text,
-                            client=client,
-                            is_google_native=is_google_native,
-                            target_model="google/gemini-3.1-pro-preview",
-                            use_llm=use_validator
-                        )
-                        st.write("DEBUG: 검증기 호출 완료.")
-                    else:
-                        batch_feedback = {}
+                    is_valid, feedback = batch_feedback.get(i+1, (True, "PASS"))
+                    
+                    batch_results.append({
+                        "type": qtype, 
+                        "text": full_text, 
+                        "is_valid": is_valid, 
+                        "feedback": feedback
+                    })
 
-                    # 3. 결과 저장
-                    for i, prob_text in enumerate(problems[1:]):
-                        prob_text = prob_text.strip()
-                        if not prob_text: continue
-                        full_text = "【문제" + prob_text
-                        is_valid, feedback = batch_feedback.get(i+1, (True, "PASS"))
-                        
-                        batch_results.append({
-                            "type": qtype, 
-                            "text": full_text, 
-                            "is_valid": is_valid, 
-                            "feedback": feedback
-                        })
+            except Exception as e:
+                batch_results.append({
+                    "type": qtype, 
+                    "text": f"[통신오류] {str(e)}", 
+                    "is_valid": False, 
+                    "feedback": "통신 실패"
+                })
 
                 except Exception as e:
                     # [예외 처리] 
