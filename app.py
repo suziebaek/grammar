@@ -437,15 +437,34 @@ with tab1:
                 allocations[selected_types[i % len(selected_types)]].append(diff_dict)
 
 # 🚀 루프: 선택한 문제 유형별로 순회
-        for idx, qtype in enumerate(selected_types):
-            type_diffs = allocations[qtype]
-            if not type_diffs: continue 
+            for idx, qtype in enumerate(selected_types):
+                type_diffs = allocations[qtype]
+                if not type_diffs: continue 
                 
-            num_for_this_type = len(type_diffs)
-            progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {num_for_this_type}문제 생성 중...")
+                num_for_this_type = len(type_diffs)
+                progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {num_for_this_type}문제 생성 중...")
 
-                # 4. 프롬프트 구성 (생략 없이 전체 포함)
-prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
+                # 1. 기출 참고 데이터 준비
+                type_matched = [q for q in QUESTIONS if q["t"] == qtype]
+                unit_matched = [q for q in QUESTIONS if selected_major in q["u"]]
+                qtype_pool = type_matched if len(type_matched) >= 3 else (unit_matched if unit_matched else QUESTIONS)
+                ref_samples = random.sample(qtype_pool, min(8, len(qtype_pool)))
+                ref_text = "\n\n".join([f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}\n해설: {q['e']}" for i, q in enumerate(ref_samples)])
+
+                # 2. 통합개념 로직
+                integration_rule = ""
+                if selected_minor_label == "통합개념":
+                    integration_rule = "9. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
+
+                # 3. 난이도 상세 조건 문자열 생성 (Lexile/소재 강제 주입 제거)
+                q_assignments = ""
+                for i, d_dict in enumerate(type_diffs):
+                    lvl = d_dict["level"]
+                    a, b, c, d = d_dict["comb"]
+                    q_assignments += f"【문제 {i+1}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점, D={d}점)\n"
+
+                # 4. 통합 프롬프트 구성
+                prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
 
 === [역할 A] 기출문제 벤치마킹 ===
 아래 기출문제를 통해 발문 형식, 선지 구성 방식, 보기 스타일을 완벽하게 모방하세요.
@@ -517,7 +536,7 @@ D. 예외성
 [정답] 
 
 [해설]
-[정답 해설]: 정답인 이유를 문법적으로 설명.
+[정답 해설]: 정답인 이유를 문법적으로 명확히 설명.
 [오답 분석]: 
 ① (오답 이유 1문장)
 ② (오답 이유 1문장)
@@ -526,61 +545,57 @@ D. 예외성
 
 ---
 """
-            # 4. 생성 및 배치 검증 (반복 없음)
-            try:
-                # [생성 호출]
-                if is_google_native:
-                    model = genai.GenerativeModel("gemini-3.1-pro-preview")
-                    response = model.generate_content(prompt)
-                    result_text = response.text
-                else:
-                    response = client.chat.completions.create(
-                        model=selected_model,
-                        messages=[{"role": "user", "content": prompt}],
-                        temperature=0.75,
-                        max_tokens=7000
-                    )
-                    result_text = response.choices[0].message.content
 
-                # [결과 쪼개기]
-                problems = result_text.split("【문제")
-                
-                # [검증]
-                if use_validator:
-                    st.write("DEBUG: 검증기 호출 시작...")
-                    batch_feedback = validate_batch_llm(
-                        full_text=result_text,
-                        client=client,
-                        is_google_native=is_google_native,
-                        target_model="google/gemini-3.1-pro-preview",
-                        use_llm=use_validator
-                    )
-                    st.write("DEBUG: 검증기 호출 완료.")
-                else:
-                    batch_feedback = {}
-                
-                # [결과 저장]
-                for i, prob_text in enumerate(problems[1:]):
-                    prob_text = prob_text.strip()
-                    if not prob_text: continue
-                    full_text = "【문제" + prob_text
+                # 5. 생성 및 배치 검증 (반복 없음)
+                try:
+                    if is_google_native:
+                        model = genai.GenerativeModel("gemini-3.1-pro-preview")
+                        response = model.generate_content(prompt)
+                        result_text = response.text
+                    else:
+                        response = client.chat.completions.create(
+                            model=selected_model,
+                            messages=[{"role": "user", "content": prompt}],
+                            temperature=0.75,
+                            max_tokens=7000
+                        )
+                        result_text = response.choices[0].message.content
+
+                    problems = result_text.split("【문제")
                     
-                    is_valid, feedback = batch_feedback.get(i+1, (True, "PASS"))
+                    if use_validator:
+                        st.write("DEBUG: 검증기 호출 시작...")
+                        batch_feedback = validate_batch_llm(
+                            full_text=result_text,
+                            client=client,
+                            is_google_native=is_google_native,
+                            target_model="google/gemini-3.1-pro-preview",
+                            use_llm=use_validator
+                        )
+                        st.write("DEBUG: 검증기 호출 완료.")
+                    else:
+                        batch_feedback = {}
                     
+                    for i, prob_text in enumerate(problems[1:]):
+                        prob_text = prob_text.strip()
+                        if not prob_text: continue
+                        full_text = "【문제" + prob_text
+                        is_valid, feedback = batch_feedback.get(i+1, (True, "PASS"))
+                        
+                        batch_results.append({
+                            "type": qtype, 
+                            "text": full_text, 
+                            "is_valid": is_valid, 
+                            "feedback": feedback
+                        })
+
+                except Exception as e:
                     batch_results.append({
                         "type": qtype, 
-                        "text": full_text, 
-                        "is_valid": is_valid, 
-                        "feedback": feedback
+                        "text": f"[통신오류] {str(e)}", 
+                        "is_valid": False, 
+                        "feedback": "통신 실패"
                     })
-
-            except Exception as e:
-                batch_results.append({
-                    "type": qtype, 
-                    "text": f"[통신오류] {str(e)}", 
-                    "is_valid": False, 
-                    "feedback": "통신 실패"
-                })
 
 # ════════════════════════════════════════════════════════
 # TAB 2 : 기출 문제 탐색 
