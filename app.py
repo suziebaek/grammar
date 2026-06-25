@@ -391,13 +391,16 @@ with tab1:
         st.session_state.pending = []
         st.rerun()
 
-    # ── 생성 실행 영역 ─────────────────────────────────────────
+# ── 생성 실행 영역 ─────────────────────────────────────────
     if generate_btn:
         total_num = final_high + final_mid + final_low
         
+        # 🚀 [핵심 방어] API 키 앞뒤에 붙은 안 보이는 공백을 강제로 제거합니다!
+        safe_api_key = raw_api_key.strip() if raw_api_key else ""
+        
         if total_num == 0:
             st.error("⚠️ 생성할 문제 개수가 0개입니다. 난이도별 문항 수를 1개 이상 배정해주세요.")
-        elif not raw_api_key:
+        elif not safe_api_key:
             st.error("⚠️ 사이드바에 통합 API Key를 입력해주세요.")
         elif not selected_types:
             st.error("⚠️ 문제 유형을 하나 이상 선택해주세요.")
@@ -409,18 +412,18 @@ with tab1:
             client = None
             is_google_native = False
             
-            if raw_api_key.startswith("sk-or-"):
-                client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=raw_api_key)
-            elif raw_api_key.startswith("AIzaSy"):
-                genai.configure(api_key=raw_api_key)
+            if safe_api_key.startswith("sk-or-"):
+                client = OpenAI(base_url="[https://openrouter.ai/api/v1](https://openrouter.ai/api/v1)", api_key=safe_api_key)
+            elif safe_api_key.startswith("AIzaSy"):
+                genai.configure(api_key=safe_api_key)
                 is_google_native = True
-            elif len(raw_api_key) == 32 or "azure" in raw_api_key.lower():
+            elif len(safe_api_key) == 32 or "azure" in safe_api_key.lower():
                 try:
-                    client = AzureOpenAI(api_key=raw_api_key, api_version="2024-02-15-preview", azure_endpoint=azure_endpoint)
+                    client = AzureOpenAI(api_key=safe_api_key, api_version="2024-02-15-preview", azure_endpoint=azure_endpoint)
                 except NameError:
                     st.error("Azure 연결을 위한 엔드포인트 URL을 입력해주세요.")
             else:
-                client = OpenAI(api_key=raw_api_key)
+                client = OpenAI(api_key=safe_api_key)
 
             diff_targets = []
             for _ in range(final_high): diff_targets.append({"level": "상", "comb": random.choice(HARD_COMBS)})
@@ -456,9 +459,13 @@ with tab1:
                 if selected_minor_label == "통합개념":
                     integration_rule = "7. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 여러 출제 포인트들을 반드시 골고루 활용하여 문제를 창작하세요.\n"
 
+                # 🚀 루프 밖에서 에러 원인을 담을 변수 생성
+                last_critical_error = ""
+
                 while remaining_specs and attempt < max_attempts:
                     attempt += 1
                     current_request_count = len(remaining_specs)
+                    last_critical_error = "" # 매 시도마다 초기화
                     
                     if attempt == 1:
                         progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {len(type_diffs)}문제 생성 중...")
@@ -546,7 +553,7 @@ D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규�
                             response = model.generate_content(prompt)
                             result_text = response.text
                         else:
-                            target_model = selected_model.split("/")[-1] if "sk-" in raw_api_key and not raw_api_key.startswith("sk-or-") else selected_model
+                            target_model = selected_model.split("/")[-1] if "sk-" in safe_api_key and not safe_api_key.startswith("sk-or-") else selected_model
                             response = client.chat.completions.create(
                                 model=target_model,
                                 messages=[{"role": "user", "content": prompt}],
@@ -556,6 +563,7 @@ D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규�
                             result_text = response.choices[0].message.content
 
                         if not result_text:
+                            last_critical_error = "API 서버가 빈 응답을 반환했습니다."
                             continue
 
                         problems = result_text.split("【문제")
@@ -568,7 +576,6 @@ D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규�
                                 
                             full_text = "【문제 " + prob_text if prob_text.startswith(" ") else "【문제" + prob_text
                             
-                            # 검증기 호출 (토글 상태 정상 전달)
                             if is_google_native:
                                 validator_client = genai.GenerativeModel("gemini-3.1-pro-preview")
                                 validator_model_name = "gemini-3.1-pro-preview"
@@ -581,7 +588,7 @@ D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규�
                                 client=validator_client,
                                 is_google_native=is_google_native,
                                 target_model=validator_model_name,
-                                use_llm=use_validator # 🚀 누락되었던 토글 값 정상 복구!
+                                use_llm=use_validator
                             )
                             
                             if not is_valid:
@@ -594,18 +601,25 @@ D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규�
                         valid_problems_texts.extend(parsed_valid_in_this_attempt)
                         
                     except Exception as e:
-                        print(f"통신 에러로 재시도 진행: {e}")
-                        pass
+                        # 🚀 [핵심 방어] 에러를 숨기지 않고 저장합니다!
+                        last_critical_error = str(e)
+                        print(f"통신 에러 발생: {last_critical_error}")
+                        pass # while 루프가 다음 시도를 진행함
 
+                # 루프 종료 후 결과 처리
                 if valid_problems_texts:
                     final_text = "\n\n".join(valid_problems_texts)
                     if remaining_specs:
                         final_text += f"\n\n--- \n⚠️ **[시스템 안내]** 최대 3회 재생성을 시도했으나, {len(remaining_specs)}문항은 내부 논리 검증(정답 불일치 등)을 통과하지 못해 누락되었습니다."
                     batch_results.append({"type": qtype, "text": final_text})
                 else:
-                    batch_results.append({"type": qtype, "text": "[검증실패] 3회의 자체 검증 및 재생성을 시도했으나 유효한 논리의 문제를 1개도 생성하지 못했습니다."})
+                    # 🚀 [핵심 방어] 통신 에러가 있었다면 그 이유를 화면에 띄웁니다!
+                    if last_critical_error:
+                        batch_results.append({"type": qtype, "text": f"[통신오류] 🚨 서버 연결 실패 또는 API 키 문제:\n\n{last_critical_error}"})
+                    else:
+                        batch_results.append({"type": qtype, "text": "[검증실패] 3회의 자체 검증 및 재생성을 시도했으나 유효한 논리의 문제를 1개도 생성하지 못했습니다."})
 
-            progress.progress(1.0, text="✅ 생성 및 검증 완료!")
+            progress.progress(1.0, text="✅ 생성 프로세스 완료!")
 
             entry = {
                 "major": selected_major,
@@ -630,12 +644,16 @@ D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규�
             with st.expander(f"📌 [{res['type']}] 유형 문제", expanded=True):
                 raw = str(res.get("text", ""))
                 
-                if raw.startswith("[오류]"):
+                # 🚀 추가된 통신 오류 화면 표시기
+                if raw.startswith("[통신오류]"):
+                    st.error("⚠️ 통신 에러가 발생하여 생성이 중단되었습니다.")
+                    st.warning(raw)
+                    continue 
+                elif raw.startswith("[오류]"):
                     st.error("⚠️ 이 유형의 문제를 생성하는 중 통신 오류가 발생했습니다.")
                     st.warning(raw)
                     continue 
-                
-                if raw.startswith("[검증실패]"):
+                elif raw.startswith("[검증실패]"):
                     st.error("⚠️ 3회의 자체 검증 및 재생성을 시도했으나 논리 검증을 통과한 문제를 생성하지 못했습니다.")
                     st.warning("팁: 프롬프트가 해당 포맷을 소화하기 어려워할 수 있습니다. LLM 검증기 토글을 끄고 생성해 보세요.")
                     continue
@@ -705,6 +723,8 @@ D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규�
                 use_container_width=True,
                 key=f"dl_pending_docx_{len(st.session_state.history)}"
             )
+
+# (이하 탭 2, 탭 3 코드는 기존과 동일하게 유지)
 
 # ════════════════════════════════════════════════════════
 # TAB 2 : 기출 문제 탐색 
