@@ -683,32 +683,34 @@ D. 예외성
                     st.markdown(raw.replace("\n", "  \n"))
                     
 
-            # 🚀 [추가] 방금 생성한 문제 즉시 다운로드 버튼
-            st.markdown("---")
-            set_text = f"[{entry['major']} > {entry['mid']} > {entry['minor']}] {entry.get('difficulty', '')}\n\n"
-            set_text += "\n\n".join(f"【{r['type']}】\n\n{r.get('text', '')}" for r in entry["results"])
-            
-            dl_col1, dl_col2 = st.columns(2)
-            with dl_col1:
-                st.download_button(
-                    "⬇️ 방금 만든 문제 다운로드 (.txt)",
-                    data=set_text.encode("utf-8"),
-                    file_name=f"생성문제_{entry['minor']}.txt",
-                    mime="text/plain",
-                    use_container_width=True,
-                    key="dl_current_txt"
-                )
-            with dl_col2:
-                # create_word_document 함수는 이미 app.py 상단에 정의되어 있으므로 바로 작동합니다.
-                st.download_button(
-                    "📄 방금 만든 문제 다운로드 (.docx)",
-                    data=create_word_document(entry, is_multiple=False),
-                    file_name=f"생성문제_{entry['minor']}.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    use_container_width=True,
-                    key="dl_current_docx"
-                )
-
+# ── 루프 끝 ──
+        
+        # 🚀 [수정] for 루프가 모두 끝난 뒤 '단 한 번만' 실행되도록 들여쓰기를 맞춥니다.
+        st.markdown("---")
+        set_text = f"[{entry['major']} > {entry['mid']} > {entry['minor']}] {entry.get('difficulty', '')}\n\n"
+        set_text += "\n\n".join(f"【{r['type']}】\n\n{r.get('text', '')}" for r in entry["results"])
+        
+        dl_col1, dl_col2 = st.columns(2)
+        unique_key = len(st.session_state.history)  # 중복 방지를 위한 고유 번호
+        
+        with dl_col1:
+            st.download_button(
+                "⬇️ 방금 만든 문제 다운로드 (.txt)",
+                data=set_text.encode("utf-8"),
+                file_name=f"생성문제_{entry['minor']}.txt",
+                mime="text/plain",
+                use_container_width=True,
+                key=f"dl_current_txt_{unique_key}"  # 중복 에러 완벽 차단
+            )
+        with dl_col2:
+            st.download_button(
+                "📄 방금 만든 문제 다운로드 (.docx)",
+                data=create_word_document(entry, is_multiple=False),
+                file_name=f"생성문제_{entry['minor']}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+                key=f"dl_current_docx_{unique_key}" # 중복 에러 완벽 차단
+            )
 # ════════════════════════════════════════════════════════
 # TAB 2 : 기출 문제 탐색
 # ════════════════════════════════════════════════════════
