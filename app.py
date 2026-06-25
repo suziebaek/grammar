@@ -682,9 +682,7 @@ D. 예외성
                 if not valid_problem_found:
                     st.markdown(raw.replace("\n", "  \n"))
                     
-if not valid_problem_found:
-                    st.markdown(raw.replace("\n", "  \n"))
-            
+
             # 🚀 [추가] 방금 생성한 문제 즉시 다운로드 버튼
             st.markdown("---")
             set_text = f"[{entry['major']} > {entry['mid']} > {entry['minor']}] {entry.get('difficulty', '')}\n\n"
