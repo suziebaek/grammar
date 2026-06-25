@@ -380,12 +380,16 @@ with tab1:
             ref_pool = QUESTIONS
         st.info(f"📎 참고 기출: {len(ref_pool)}문제 ('{selected_major}' 관련)")
             
-    # ── 생성 버튼 ─────────────────────────────────────────
+# ── 생성 버튼 ─────────────────────────────────────────
     st.markdown("---")
-    gen_col1, gen_col2 = st.columns([3, 1])
+    
+    # 🚀 [추가] 검증기 온/오프 토글 스위치 배치
+    gen_col1, gen_col2, gen_col3 = st.columns([2.5, 1.5, 1])
     with gen_col1:
         generate_btn = st.button("🚀 문제 생성하기", use_container_width=True)
     with gen_col2:
+        use_validator = st.toggle("🛡️ LLM 검증기 작동", value=True, help="AI가 논리적 오류를 검수합니다.")
+    with gen_col3:
         clear_btn = st.button("🗑️ 결과 초기화", use_container_width=True)
 
     if clear_btn:
@@ -393,13 +397,16 @@ with tab1:
         st.rerun()
 
 
-# ── 생성 실행 ─────────────────────────────────────────
+    # ── 생성 실행 ─────────────────────────────────────────
     if generate_btn:
         total_num = final_high + final_mid + final_low
         
+        # 🚀 [안전장치 1] API 키 복사/붙여넣기 시 섞여 들어간 보이지 않는 공백 완벽 제거
+        safe_api_key = raw_api_key.strip() if raw_api_key else ""
+        
         if total_num == 0:
             st.error("⚠️ 생성할 문제 개수가 0개입니다. 난이도별 문항 수를 1개 이상 배정해주세요.")
-        elif not raw_api_key:
+        elif not safe_api_key:
             st.error("⚠️ 사이드바에 통합 API Key를 입력해주세요.")
         elif not selected_types:
             st.error("⚠️ 문제 유형을 하나 이상 선택해주세요.")
@@ -411,20 +418,19 @@ with tab1:
             client = None
             is_google_native = False
             
-            if raw_api_key.startswith("sk-or-"):
-                client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=raw_api_key)
-            elif raw_api_key.startswith("AIzaSy"):
-                genai.configure(api_key=raw_api_key)
+            if safe_api_key.startswith("sk-or-"):
+                client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=safe_api_key)
+            elif safe_api_key.startswith("AIzaSy"):
+                genai.configure(api_key=safe_api_key)
                 is_google_native = True
-            elif len(raw_api_key) == 32 or "azure" in raw_api_key.lower():
+            elif len(safe_api_key) == 32 or "azure" in safe_api_key.lower():
                 try:
-                    client = AzureOpenAI(api_key=raw_api_key, api_version="2024-02-15-preview", azure_endpoint=azure_endpoint)
+                    client = AzureOpenAI(api_key=safe_api_key, api_version="2024-02-15-preview", azure_endpoint=azure_endpoint)
                 except NameError:
                     st.error("Azure 연결을 위한 엔드포인트 URL을 입력해주세요.")
             else:
-                client = OpenAI(api_key=raw_api_key)
+                client = OpenAI(api_key=safe_api_key)
 
-# 🚀 [수정 3] 기존의 단순 "상/중/하" 리스트 대신, "레벨 + 무작위 상세 조합" 딕셔너리로 할당표 생성!
             diff_targets = []
             for _ in range(final_high): diff_targets.append({"level": "상", "comb": random.choice(HARD_COMBS)})
             for _ in range(final_mid): diff_targets.append({"level": "중", "comb": random.choice(MID_COMBS)})
@@ -432,8 +438,10 @@ with tab1:
             
             allocations = {t: [] for t in selected_types}
             for i, diff_dict in enumerate(diff_targets):
-                # 라운드 로빈 분배는 그대로 유지
                 allocations[selected_types[i % len(selected_types)]].append(diff_dict)
+
+            # 🚀 [추가] 분리된 검증기 모듈 불러오기
+            from validator import validate_question_llm
 
             for idx, qtype in enumerate(selected_types):
                 type_diffs = allocations[qtype]
@@ -441,14 +449,16 @@ with tab1:
                 if not type_diffs:
                     continue 
                     
-                num_for_this_type = len(type_diffs)
-                progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {num_for_this_type}문제 생성 중...")
+                # 🚀 [추가] 재시도(Auto-Retry) 루프 변수 세팅
+                remaining_specs = type_diffs.copy()
+                valid_problems_texts = []
+                max_attempts = 3
+                attempt = 0
+                last_critical_error = "" # 통신 에러를 낚아채기 위한 변수
 
                 type_matched = [q for q in QUESTIONS if q["t"] == qtype]
                 unit_matched = [q for q in QUESTIONS if selected_major in q["u"]]
                 qtype_pool = type_matched if len(type_matched) >= 3 else (unit_matched if unit_matched else QUESTIONS)
-                
-                # 🚀 [수정 2] 참고 기출문제 예시를 최대 5개 -> 8개로 확대
                 ref_samples = random.sample(qtype_pool, min(8, len(qtype_pool)))
                 ref_text = "\n\n".join([
                     f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}\n해설: {q['e']}"
@@ -459,14 +469,24 @@ with tab1:
                 if selected_minor_label == "통합개념":
                     integration_rule = "7. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
 
-                # 🚀 [핵심] 이 유형에 배정된 문항마다 구체적인 A,B,C,D 값을 프롬프트에 꽂아줌
-                q_assignments = ""
-                for i, d_dict in enumerate(type_diffs):
-                    lvl = d_dict["level"]
-                    a, b, c, d = d_dict["comb"]
-                    q_assignments += f"【문제 {i+1}】 타겟 난이도: [{lvl}] (상세 조건: A={a}점, B={b}점, C={c}점, D={d}점)\n"
+                # 🚀 [추가] 목표 수량을 채울 때까지 최대 3회 반복
+                while remaining_specs and attempt < max_attempts:
+                    attempt += 1
+                    current_request_count = len(remaining_specs)
+                    last_critical_error = "" 
+                    
+                    if attempt == 1:
+                        progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {current_request_count}문제 생성 중...")
+                    else:
+                        progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 오류 문항 재생성 중 (시도 {attempt}/{max_attempts})...")
 
-                prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
+                    q_assignments = ""
+                    for i, d_dict in enumerate(remaining_specs):
+                        lvl = d_dict["level"]
+                        a, b, c, d = d_dict["comb"]
+                        q_assignments += f"【문제 {len(valid_problems_texts) + i + 1}】 타겟 난이도: [{lvl}] (상세 조건: A={a}점, B={b}점, C={c}점, D={d}점)\n"
+
+                    prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
 
 === [역할 A] 기출문제 벤치마킹 ===
 아래 기출문제를 통해 발문 형식, 선지 구성 방식, 보기 스타일을 완벽하게 모방하세요.
@@ -480,7 +500,7 @@ with tab1:
 
 === 출제 조건 ===
 - 문제 유형: {qtype}
-- 총 생성 개수: {num_for_this_type}개
+- 총 생성 개수: {current_request_count}개
 - 추가 요청: {extra if extra else '없음'}
 
 === ★ [역할 C] 난이도 평가 척도 및 배정표 (필수 적용) ★ ===
@@ -497,7 +517,7 @@ D. 예외성 (규칙의 특수성)
    - 0점: 기본 규칙 1개만 매칭 / 1점: 기본 규칙 + 예외 규칙 1개 매칭 / 2점: 예외 규칙만 매칭, 또는 예외의 예외
 
 === ★ [역할 D] 문항별 난이도 배정표 (명령) ★ ===
-반드시 아래 지정된 번호와 난이도 타겟(점수 구간) 및 [상세 조건]에 맞춰서 정확히 {num_for_this_type}문제를 창작하세요.
+반드시 아래 지정된 번호와 난이도 타겟(점수 구간) 및 [상세 조건]에 맞춰서 정확히 {current_request_count}문제를 창작하세요.
 AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B, C, D 상세 조건을 100% 그대로 적용하여 문제를 설계하세요.
 {q_assignments}
 
@@ -530,37 +550,87 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
 
 ---
 """
-                try:
-                    if is_google_native:
-                        gemini_model_name = "gemini-1.5-pro" if "gemini" in selected_model.lower() else "gemini-1.5-pro"
-                        model = genai.GenerativeModel(gemini_model_name)
-                        response = model.generate_content(prompt)
-                        result_text = response.text
-                    else:
-                        target_model = selected_model
-                        if "sk-" in raw_api_key and not raw_api_key.startswith("sk-or-") and "gpt" not in selected_model:
-                            target_model = "gpt-4o"
+                    try:
+                        if is_google_native:
+                            gemini_model_name = "gemini-1.5-pro" if "gemini" in selected_model.lower() else "gemini-1.5-pro"
+                            model = genai.GenerativeModel(gemini_model_name)
+                            response = model.generate_content(prompt)
+                            result_text = response.text
+                        else:
+                            target_model = selected_model
+                            if "sk-" in safe_api_key and not safe_api_key.startswith("sk-or-") and "gpt" not in selected_model:
+                                target_model = "gpt-4o"
+                                
+                            response = client.chat.completions.create(
+                                model=target_model,
+                                messages=[{"role": "user", "content": prompt}],
+                                temperature=0.75,
+                                max_tokens=7000
+                            )
+                            result_text = response.choices[0].message.content
+
+                        if not result_text:
+                            last_critical_error = "AI 엔진이 빈 응답을 반환했습니다. (보안 필터링 또는 일시적 통신 오류)"
+                            break # 🚀 [안전장치 2] 에러 시 무의미한 재시도 즉각 중단!
+
+                        problems = result_text.split("【문제")
+                        parsed_valid_in_this_attempt = []
+                        
+                        for prob_text in problems[1:]:
+                            prob_text = prob_text.strip()
+                            if not prob_text or not prob_text[0].isdigit():
+                                continue
+                                
+                            full_text = "【문제 " + prob_text if prob_text.startswith(" ") else "【문제" + prob_text
                             
-                        response = client.chat.completions.create(
-                            model=target_model,
-                            messages=[{"role": "user", "content": prompt}],
-                            temperature=0.75,
-                            max_tokens=7000
-                        )
-                        result_text = response.choices[0].message.content
+                            # 🚀 [추가] 검증기 호출부 (오픈라우터에 존재하는 안전한 모델명 강제 고정)
+                            if is_google_native:
+                                validator_client = genai.GenerativeModel("gemini-1.5-pro")
+                                validator_model_name = "gemini-1.5-pro"
+                            else:
+                                validator_client = client
+                                validator_model_name = "google/gemini-1.5-pro" 
+                            
+                            is_valid, feedback = validate_question_llm(
+                                full_text=full_text,
+                                client=validator_client,
+                                is_google_native=is_google_native,
+                                target_model=validator_model_name,
+                                use_llm=use_validator
+                            )
+                            
+                            if not is_valid:
+                                print(f"⚠️ [검증 실패]: {feedback}")
+                            
+                            # 통과한 문제만 합격 처리하고 목표치에서 차감
+                            if is_valid and remaining_specs:
+                                parsed_valid_in_this_attempt.append(full_text)
+                                remaining_specs.pop(0)
 
-                    # 🚀 [추가] AI가 응답을 거부하거나 None을 반환했을 때의 안전장치
-                    if not result_text:
-                        result_text = "[오류] AI 엔진이 빈 응답을 반환했습니다. (보안 필터링 또는 일시적 통신 오류)"
+                        valid_problems_texts.extend(parsed_valid_in_this_attempt)
+                        
+                    except Exception as e:
+                        # 🚀 [안전장치 3] 통신 에러가 나면 조용히 재시도하지 않고 아예 박살내버림!
+                        last_critical_error = str(e)
+                        print(f"🚨 통신/API 에러 발생: {last_critical_error}")
+                        break # While 루프 탈출
 
-                    batch_results.append({"type": qtype, "text": str(result_text)})
-                except Exception as e:
-                    # 에러가 나더라도 앱이 뻗지 않고 텍스트로 기록한 뒤 "다음 유형" 생성을 계속 진행합니다!
-                    batch_results.append({"type": qtype, "text": f"[오류] 출제 엔진 통신 실패: {str(e)}"})
+                # 🚀 한 유형에 대한 While 루프(최대 3회) 종료 후 처리
+                if valid_problems_texts:
+                    final_text = "\n\n".join(valid_problems_texts)
+                    if remaining_specs:
+                        final_text += f"\n\n--- \n⚠️ **[시스템 안내]** 3회 재생성을 시도했으나, {len(remaining_specs)}문항이 논리 검증을 통과하지 못해 누락되었습니다."
+                    batch_results.append({"type": qtype, "text": final_text})
+                else:
+                    if last_critical_error:
+                        # 🚀 통신 에러의 원인을 화면에 대문짝만하게 띄웁니다!
+                        batch_results.append({"type": qtype, "text": f"[통신오류] 🚨 서버 연결 실패 또는 API 문제:\n\n{last_critical_error}"})
+                    else:
+                        batch_results.append({"type": qtype, "text": "[검증실패] 3회의 자체 검증을 시도했으나 모두 불합격 처리되었습니다."})
 
-            progress.progress(1.0, text="✅ 생성 완료!")
+            progress.progress(1.0, text="✅ 생성 프로세스 완료!")
 
-            # 🚀 [히스토리 저장] 세트명에 직관적인 총 개수와 비율 기록
+            # 🚀 [히스토리 저장]
             entry = {
                 "major": selected_major,
                 "mid": selected_mid,
