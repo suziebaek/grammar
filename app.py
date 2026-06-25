@@ -8,7 +8,7 @@ import re
 import time
 import io
 from docx import Document # 🚀 [추가] 워드 다운로드를 위한 라이브러리 (pip install python-docx 필요)
-from validator import validate_question_llm
+from validator import validate_question_llm, validate_batch_llm  # <--- 이 줄이 반드시 있어야 합니다!
 
 # ── 🚀 [추가] 난이도 세부 조합 (A, B, C, D) 81가지 경우의 수 사전 계산 ──
 ALL_COMBS = [(a, b, c, d) for a in (0, 1, 2) for b in (0, 1, 2) for c in (0, 1, 2) for d in (0, 1, 2)]
