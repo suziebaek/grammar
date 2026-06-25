@@ -437,31 +437,12 @@ with tab1:
                 allocations[selected_types[i % len(selected_types)]].append(diff_dict)
 
 # 🚀 루프: 선택한 문제 유형별로 순회
-            for idx, qtype in enumerate(selected_types):
-                type_diffs = allocations[qtype]
-                if not type_diffs: continue 
-                    
-                num_for_this_type = len(type_diffs)
-                progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {num_for_this_type}문제 생성 중...")
-
-                # 1. 기출 참고 데이터 준비
-                type_matched = [q for q in QUESTIONS if q["t"] == qtype]
-                unit_matched = [q for q in QUESTIONS if selected_major in q["u"]]
-                qtype_pool = type_matched if len(type_matched) >= 3 else (unit_matched if unit_matched else QUESTIONS)
-                ref_samples = random.sample(qtype_pool, min(8, len(qtype_pool)))
-                ref_text = "\n\n".join([f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}\n해설: {q['e']}" for i, q in enumerate(ref_samples)])
-
-                # 2. 통합개념 로직
-                integration_rule = ""
-                if selected_minor_label == "통합개념":
-                    integration_rule = "8. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
-
-                # 3. 상세 난이도 배정 문자열 생성 (프롬프트 내부 사용용)
-                q_assignments = ""
-                for i, d_dict in enumerate(type_diffs):
-                    lvl = d_dict["level"]
-                    a, b, c, d = d_dict["comb"]
-                    q_assignments += f"【문제 {i+1}】 타겟 난이도: [{lvl}] (상세 조건: A={a}점, B={b}점, C={c}점, D={d}점)\n"
+        for idx, qtype in enumerate(selected_types):
+            type_diffs = allocations[qtype]
+            if not type_diffs: continue 
+                
+            num_for_this_type = len(type_diffs)
+            progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {num_for_this_type}문제 생성 중...")
 
                 # 4. 프롬프트 구성 (생략 없이 전체 포함)
 prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
@@ -545,11 +526,7 @@ D. 예외성
 
 ---
 """
-
-# 3. 프롬프트 정의 (기존 내용 유지)
-                # ... (이 앞부분은 기존 코드 그대로 두세요) ...
-
-# 4. 생성 및 배치 검증 (반복 없음)
+            # 4. 생성 및 배치 검증 (반복 없음)
             try:
                 # [생성 호출]
                 if is_google_native:
@@ -604,135 +581,6 @@ D. 예외성
                     "is_valid": False, 
                     "feedback": "통신 실패"
                 })
-
-                except Exception as e:
-                    # [예외 처리] 
-                    batch_results.append({
-                        "type": qtype, 
-                        "text": f"[통신오류] {str(e)}", 
-                        "is_valid": False, 
-                        "feedback": "통신 실패"
-                    })
-                # [여기까지가 try-except 블록입니다]
-
-            # [여기서부터는 for 루프 밖이거나, for 루프의 다음 순번입니다]
-            # [기존의 entry 저장 로직]
-            entry = {
-                "major": selected_major,
-                "mid": selected_mid,
-                "minor": selected_minor_label,
-                "difficulty": f"총 {total_num}문제 (상{final_high}/중{final_mid}/하{final_low})",
-                "types": selected_types,
-                "count": total_num,
-                "results": batch_results,
-            }
-            st.session_state.history.append(entry)
-            st.session_state.pending = [entry]
-            
-            # [이제 여기서 if문이 나옵니다 - 밖으로 완전히 탈출한 상태!]
-            if st.session_state.pending:
-                st.rerun()
-    # ── 결과 표시 ─────────────────────────────────────────
-    if st.session_state.pending:
-        entry = st.session_state.pending[-1]
-        st.markdown("---")
-        st.markdown(f"### 📄 생성 결과 — {entry['major']} > {entry['mid']} > {entry['minor']}")
-
-        for res in entry["results"]:
-            with st.expander(f"📌 [{res['type']}] 유형 문제", expanded=True):
-                
-                # --- [여기] 이 부분에 붙여넣으세요 ---
-                if not res.get("is_valid", True):
-                    st.error(f"⚠️ **검증 경고:** {res.get('feedback')}")
-                else:
-                    st.success("✅ **검증 통과**")
-                # ----------------------------------
-
-                raw = str(res.get("text", ""))
-                
-                
-                # 통신 에러 UI
-                if raw.startswith("[통신오류]"):
-                    st.error("⚠️ 통신 에러가 발생하여 생성이 중단되었습니다.")
-                    st.warning(raw)
-                    continue 
-                
-                # 🚀 [핵심 3] 검증 실패 UI (원본 렌더링 지원)
-                if raw.startswith("[검증실패]"):
-                    st.error("⚠️ 3회의 자동 재생성에도 논리 검증을 통과하지 못했습니다.")
-                    st.info("💡 검증기가 문제를 통과시키지 못한 원인을 아래 원본 텍스트에서 확인하세요.")
-                    st.markdown(raw.replace("\n", "  \n")) # 원본 화면 출력!
-                    continue
-
-                problems = raw.split("【문제")
-                
-                if len(problems) <= 1:
-                    st.warning("⚠️ 양식이 깨졌거나 렌더링 오류가 발생했습니다. 원본을 확인하세요.")
-                    st.markdown(raw.replace("\n", "  \n"))
-                    continue
-
-                valid_problem_found = False
-                for prob in problems:
-                    prob = prob.strip()
-                    if not prob or not prob[0].isdigit():
-                        continue
-                    
-                    valid_problem_found = True
-                    full = "【문제" + prob
-                    parts = {}
-                    tags = ["발문", "보기/지문", "정답", "해설"]
-                    for tag in tags:
-                        key = f"[{tag}]"
-                        if key in full:
-                            start = full.index(key) + len(key)
-                            nexts = [f"[{t}]" for t in tags if f"[{t}]" in full[start:]]
-                            end = full.index(nexts[0], start) if nexts else len(full)
-                            parts[tag] = full[start:end].replace("---", "").strip()
-
-                    st.markdown('<div class="question-box">', unsafe_allow_html=True)
-                    num_part = prob[:10].split("】")[0]
-                    st.markdown(f"**【문제{num_part}】**")
-                    if "발문" in parts:
-                        st.markdown(f"**{parts['발문']}**")
-                    if "보기/지문" in parts:
-                        st.markdown(parts["보기/지문"])
-                    if "정답" in parts:
-                        st.markdown(f'<div class="answer-box">✅ <b>정답:</b> {parts["정답"]}</div>', unsafe_allow_html=True)
-                    if "해설" in parts:
-                        st.markdown("💡 **해설:**")
-                        st.markdown(parts["해설"].replace("\n", "  \n"))
-                    st.markdown('</div>', unsafe_allow_html=True)
-                
-                if not valid_problem_found:
-                    st.markdown(raw.replace("\n", "  \n"))
-
-        # 다운로드 버튼 영역 (이하 기존 코드 유지...)
-
-# 🚀 [수정 1] 다운로드 버튼 (텍스트 + 워드 2가지 옵션 제공)
-        combined = f"[생성 정보]\n단원: {entry['major']} > {entry['mid']} > {entry['minor']}\n난이도: {entry['difficulty']}\n\n"
-        combined += "\n\n" + "="*60 + "\n\n".join(
-            f"【{r['type']} 유형】\n\n{r['text']}" for r in entry["results"]
-        )
-        
-        dl_col1, dl_col2 = st.columns(2)
-        with dl_col1:
-            st.download_button(
-                "⬇️ 전체 문제 다운로드 (.txt)",
-                data=combined.encode("utf-8"),
-                file_name=f"{entry['major']}_{entry['minor']}_문제.txt",
-                mime="text/plain",
-                use_container_width=True,
-                key=f"dl_pending_txt_{len(st.session_state.history)}"
-            )
-        with dl_col2:
-            st.download_button(
-                "📄 전체 문제 다운로드 (.docx)",
-                data=create_word_document(entry, is_multiple=False),
-                file_name=f"{entry['major']}_{entry['minor']}_문제.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                use_container_width=True,
-                key=f"dl_pending_docx_{len(st.session_state.history)}"
-            )
 
 # ════════════════════════════════════════════════════════
 # TAB 2 : 기출 문제 탐색 
