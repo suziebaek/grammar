@@ -547,11 +547,13 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                             max_tokens=7000
                         )
                         result_text = response.choices[0].message.content
-
-                    # [결과 쪼개기]
+# [수정] 쪼개기 직전과 직후에 로그 추가
                     problems = result_text.split("【문제")
-                    
-                    # [배치 검증 호출] 전체를 한 번에 검증
+                    st.write(f"DEBUG: 생성된 문제 수 = {len(problems)-1}개") # 1단계 확인
+                
+                # [배치 검증 호출]
+                    st.write("DEBUG: 검증기 호출 시작...") # 2단계 확인
+                
                     batch_feedback = validate_batch_llm(
                         full_text=result_text,
                         client=client,
@@ -559,6 +561,7 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                         target_model="google/gemini-3.1-pro-preview",
                         use_llm=use_validator
                     )
+                st.write("DEBUG: 검증기 호출 완료.") # 3단계 확인
                     
                     # [결과 저장 루프]
                     for i, prob_text in enumerate(problems[1:]):
