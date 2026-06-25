@@ -566,14 +566,19 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                     else:
                         st.write("DEBUG: 검증기 사용 안 함 (건너뜀)")
                     
-                    # [결과 저장 루프]
+ # [결과 저장 루프]
+                    st.write(f"DEBUG: 처리할 문제 조각 개수: {len(problems)-1}개") # 문제 개수 확인
+                    
                     for i, prob_text in enumerate(problems[1:]):
+                        st.write(f"DEBUG: {i+1}번째 문제 처리 시작...") # 루프 진입 확인
                         prob_text = prob_text.strip()
-                        if not prob_text: continue
+                        if not prob_text: 
+                            st.write(f"DEBUG: {i+1}번째 문제가 비어있어 건너뜀")
+                            continue
+                        
                         full_text = "【문제" + prob_text
                         
                         # 배지 검증 결과 매칭
-                        # 만약 검증기를 안 썼으면(batch_feedback이 비었으면) 기본값 (True, "PASS") 사용
                         is_valid, feedback = batch_feedback.get(i+1, (True, "PASS"))
                         
                         batch_results.append({
@@ -582,14 +587,9 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                             "is_valid": is_valid, 
                             "feedback": feedback
                         })
-
-                except Exception as e:
-                    batch_results.append({
-                        "type": qtype, 
-                        "text": f"[통신오류] {str(e)}", 
-                        "is_valid": False, 
-                        "feedback": "통신 실패"
-                    })
+                        st.write(f"DEBUG: {i+1}번째 문제 저장 완료.") # 저장 완료 확인
+                    
+                    st.write("DEBUG: 모든 루프 정상 종료.") # 루프 탈출 확인
     # ── 결과 표시 ─────────────────────────────────────────
     if st.session_state.pending:
         entry = st.session_state.pending[-1]
