@@ -454,6 +454,12 @@ with tab1:
                 integration_rule = ""
                 if selected_minor_label == "통합개념":
                     integration_rule = "7. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 특정 개념에만 편중되지 않게 창작하세요.\n"
+            
+            q_assignments = ""
+            for i, d_dict in enumerate(type_diffs):
+                lvl = d_dict["level"]
+                a, b, c, d = d_dict["comb"]
+                q_assignments += f"【문제 {i+1}】 타겟 난이도: [{lvl}] (상세 조건: A={a}점, B={b}점, C={c}점, D={d}점)\n"
                     prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
 
 === [역할 A] 기출문제 벤치마킹 ===
