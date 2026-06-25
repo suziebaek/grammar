@@ -435,51 +435,25 @@ with tab1:
             for i, diff_dict in enumerate(diff_targets):
                 allocations[selected_types[i % len(selected_types)]].append(diff_dict)
 
-            # 🚀 [추가] 분리된 검증기 모듈 불러오기 (하드 룰 제거 버전)
-            from validator import validate_question_llm
-
+# 🚀 [시작점] 여기서부터 for 루프 끝까지를 이 내용으로 교체하세요
             for idx, qtype in enumerate(selected_types):
                 type_diffs = allocations[qtype]
                 if not type_diffs: continue 
                     
-                remaining_specs = type_diffs.copy()
-                valid_problems_texts = []
-                max_attempts = 3
-                attempt = 0
-                
-                last_raw_text = ""
-                last_critical_error = ""
+                num_for_this_type = len(type_diffs)
+                progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {num_for_this_type}문제 생성 중...")
 
+                # 1. 기출 참고 데이터 준비 (절대 삭제 금지)
                 type_matched = [q for q in QUESTIONS if q["t"] == qtype]
                 unit_matched = [q for q in QUESTIONS if selected_major in q["u"]]
                 qtype_pool = type_matched if len(type_matched) >= 3 else (unit_matched if unit_matched else QUESTIONS)
                 ref_samples = random.sample(qtype_pool, min(8, len(qtype_pool)))
-                ref_text = "\n\n".join([
-                    f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}\n해설: {q['e']}"
-                    for i, q in enumerate(ref_samples)
-                ])
+                ref_text = "\n\n".join([f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}\n해설: {q['e']}" for i, q in enumerate(ref_samples)])
 
+                # 2. 통합개념 로직 (절대 삭제 금지)
                 integration_rule = ""
                 if selected_minor_label == "통합개념":
-                    integration_rule = "7. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
-
-                # 🚀 재시도 루프 시작
-                while remaining_specs and attempt < max_attempts:
-                    attempt += 1
-                    current_request_count = len(remaining_specs)
-                    last_critical_error = "" 
-                    
-                    if attempt == 1:
-                        progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {current_request_count}문제 생성 중...")
-                    else:
-                        progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 재생성 중 (시도 {attempt}/{max_attempts})...")
-
-                    q_assignments = ""
-                    for i, d_dict in enumerate(remaining_specs):
-                        lvl = d_dict["level"]
-                        a, b, c, d = d_dict["comb"]
-                        q_assignments += f"【문제 {len(valid_problems_texts) + i + 1}】 타겟 난이도: [{lvl}] (상세 조건: A={a}점, B={b}점, C={c}점, D={d}점)\n"
-
+                    integration_rule = "7. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 특정 개념에만 편중되지 않게 창작하세요.\n"
                     prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
 
 === [역할 A] 기출문제 벤치마킹 ===
@@ -543,96 +517,52 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
 
 ---
 """
-                    try:
-                        if is_google_native:
-                            gemini_model_name = "gemini-1.5-pro" if "gemini" in selected_model.lower() else "gemini-1.5-pro"
-                            model = genai.GenerativeModel(gemini_model_name)
-                            response = model.generate_content(prompt)
-                            result_text = response.text
-                        else:
-                            target_model = selected_model
-                            if "sk-" in safe_api_key and not safe_api_key.startswith("sk-or-") and "gpt" not in selected_model:
-                                target_model = "gpt-4o"
-                                
-                            response = client.chat.completions.create(
-                                model=target_model,
-                                messages=[{"role": "user", "content": prompt}],
-                                temperature=0.75,
-                                max_tokens=7000
-                            )
-                            result_text = response.choices[0].message.content
-
-                        if not result_text:
-                            last_critical_error = "AI 엔진이 빈 응답을 반환했습니다."
-                            break 
-
-                        # 🚀 [핵심 1] 화면에 뿌려주기 위해 날것의 원본을 무조건 변수에 저장해 둡니다.
-                        last_raw_text = result_text 
-
-                        problems = result_text.split("【문제")
-                        parsed_valid_in_this_attempt = []
-                        
-                        for prob_text in problems[1:]:
-                            prob_text = prob_text.strip()
-                            if not prob_text or not prob_text[0].isdigit():
-                                continue
-                                
-                            full_text = "【문제 " + prob_text if prob_text.startswith(" ") else "【문제" + prob_text
-                            
-# 🚀 [수정] 검증기에 Gemini 3.1 Pro 모델을 정확히 지정
-                            if is_google_native:
-                                # 구글 AI Studio 직결 시
-                                validator_client = genai.GenerativeModel("gemini-3.1-pro-preview")
-                                validator_model_name = "gemini-3.1-pro-preview"
-                            else:
-                                # OpenRouter 통합 API 사용 시
-                                validator_client = client
-                                validator_model_name = "google/gemini-3.1-pro-preview"
-                            
-                            is_valid, feedback = validate_question_llm(
-                                full_text=full_text,
-                                client=validator_client,
-                                is_google_native=is_google_native,
-                                target_model=validator_model_name,
-                                use_llm=use_validator
-                            )
-                            is_valid, feedback = validate_question_llm(
-                                full_text=full_text,
-                                client=validator_client,
-                                is_google_native=is_google_native,
-                                target_model=validator_model_name,
-                                use_llm=use_validator
-                            )
-                            
-                            if not is_valid:
-                                print(f"⚠️ [검증 실패]: {feedback}")
-                            
-                            if is_valid and remaining_specs:
-                                parsed_valid_in_this_attempt.append(full_text)
-                                remaining_specs.pop(0)
-
-                        valid_problems_texts.extend(parsed_valid_in_this_attempt)
-                        
-                    except Exception as e:
-                        last_critical_error = str(e)
-                        print(f"🚨 통신 에러 발생: {last_critical_error}")
-                        break
-
-                if valid_problems_texts:
-                    final_text = "\n\n".join(valid_problems_texts)
-                    if remaining_specs:
-                        final_text += f"\n\n--- \n⚠️ **[시스템 안내]** 3회 재생성을 시도했으나, {len(remaining_specs)}문항이 논리 검증을 통과하지 못해 누락되었습니다."
-                    batch_results.append({"type": qtype, "text": final_text})
+        try:
+                # 1. 생성 호출
+                if is_google_native:
+                    model = genai.GenerativeModel("gemini-1.5-pro") # 필요시 3.1로 수정
+                    response = model.generate_content(prompt)
+                    result_text = response.text
                 else:
-                    if last_critical_error:
-                        batch_results.append({"type": qtype, "text": f"[통신오류] 🚨 서버 연결 실패:\n\n{last_critical_error}"})
-                    else:
-                        # 🚀 [핵심 2] 3번 모두 실패하면, 화면에 에러 문구와 함께 원본(last_raw_text)을 적나라하게 출력!
-                        error_msg = f"[검증실패] 3회의 검증을 시도했으나 모두 불합격 처리되었습니다.\n\n"
-                        error_msg += f"=== 🚨 [AI가 생성한 원본 데이터 보기] ===\n\n{last_raw_text}"
-                        batch_results.append({"type": qtype, "text": error_msg})
+                    response = client.chat.completions.create(
+                        model=selected_model,
+                        messages=[{"role": "user", "content": prompt}],
+                        temperature=0.75,
+                        max_tokens=7000
+                    )
+                    result_text = response.choices[0].message.content
 
-            progress.progress(1.0, text="✅ 생성 프로세스 완료!")
+                # 2. 결과물 쪼개기 및 검증 (반복 없음)
+                problems = result_text.split("【문제")
+                for prob_text in problems[1:]:
+                    prob_text = prob_text.strip()
+                    if not prob_text: continue
+                    full_text = "【문제" + prob_text
+                    
+                    # 3. 검증기 호출 (3.1 모델 고정)
+                    is_valid, feedback = validate_question_llm(
+                        full_text=full_text,
+                        client=client,
+                        is_google_native=is_google_native,
+                        target_model="google/gemini-3.1-pro-preview",
+                        use_llm=use_validator
+                    )
+                    
+                    # 4. 결과 저장
+                    batch_results.append({
+                        "type": qtype, 
+                        "text": full_text, 
+                        "is_valid": is_valid, 
+                        "feedback": feedback
+                    })
+
+            except Exception as e:
+                batch_results.append({
+                    "type": qtype, 
+                    "text": f"[통신오류] {str(e)}", 
+                    "is_valid": False, 
+                    "feedback": "통신 실패"
+                })
 
             entry = {
                 "major": selected_major,
