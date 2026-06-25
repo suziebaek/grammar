@@ -382,8 +382,6 @@ with tab1:
             
 # ── 생성 버튼 ─────────────────────────────────────────
     st.markdown("---")
-    
-    # 🚀 [추가] 검증기 온/오프 토글 스위치 배치
     gen_col1, gen_col2, gen_col3 = st.columns([2.5, 1.5, 1])
     with gen_col1:
         generate_btn = st.button("🚀 문제 생성하기", use_container_width=True)
@@ -396,12 +394,9 @@ with tab1:
         st.session_state.pending = []
         st.rerun()
 
-
     # ── 생성 실행 ─────────────────────────────────────────
     if generate_btn:
         total_num = final_high + final_mid + final_low
-        
-        # 🚀 [안전장치 1] API 키 복사/붙여넣기 시 섞여 들어간 보이지 않는 공백 완벽 제거
         safe_api_key = raw_api_key.strip() if raw_api_key else ""
         
         if total_num == 0:
@@ -440,21 +435,20 @@ with tab1:
             for i, diff_dict in enumerate(diff_targets):
                 allocations[selected_types[i % len(selected_types)]].append(diff_dict)
 
-            # 🚀 [추가] 분리된 검증기 모듈 불러오기
+            # 🚀 [추가] 분리된 검증기 모듈 불러오기 (하드 룰 제거 버전)
             from validator import validate_question_llm
 
             for idx, qtype in enumerate(selected_types):
                 type_diffs = allocations[qtype]
-                
-                if not type_diffs:
-                    continue 
+                if not type_diffs: continue 
                     
-                # 🚀 [추가] 재시도(Auto-Retry) 루프 변수 세팅
                 remaining_specs = type_diffs.copy()
                 valid_problems_texts = []
                 max_attempts = 3
                 attempt = 0
-                last_critical_error = "" # 통신 에러를 낚아채기 위한 변수
+                
+                last_raw_text = ""
+                last_critical_error = ""
 
                 type_matched = [q for q in QUESTIONS if q["t"] == qtype]
                 unit_matched = [q for q in QUESTIONS if selected_major in q["u"]]
@@ -469,7 +463,7 @@ with tab1:
                 if selected_minor_label == "통합개념":
                     integration_rule = "7. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
 
-                # 🚀 [추가] 목표 수량을 채울 때까지 최대 3회 반복
+                # 🚀 재시도 루프 시작
                 while remaining_specs and attempt < max_attempts:
                     attempt += 1
                     current_request_count = len(remaining_specs)
@@ -478,7 +472,7 @@ with tab1:
                     if attempt == 1:
                         progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {current_request_count}문제 생성 중...")
                     else:
-                        progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 오류 문항 재생성 중 (시도 {attempt}/{max_attempts})...")
+                        progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 재생성 중 (시도 {attempt}/{max_attempts})...")
 
                     q_assignments = ""
                     for i, d_dict in enumerate(remaining_specs):
@@ -501,7 +495,6 @@ with tab1:
 === 출제 조건 ===
 - 문제 유형: {qtype}
 - 총 생성 개수: {current_request_count}개
-- 추가 요청: {extra if extra else '없음'}
 
 === ★ [역할 C] 난이도 평가 척도 및 배정표 (필수 적용) ★ ===
 당신은 할당된 타겟 난이도에 맞추기 위해 아래 4가지 항목(A~D)의 점수를 합산하여 문항을 설계해야 합니다. (총점 0~8점)
@@ -526,7 +519,7 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
 2. [치명적 오답 설계]: 'cans', 'musted' 같이 존재하지 않는 유치한 단어를 지어내는 것을 엄격히 금지합니다.
 3. 오답(함정)을 만들 때는 주어와 동사 사이를 멀리 떨어뜨리거나 구문 분석을 요하도록 교묘하게 설계하세요.
 4. 선지는 ①②③④⑤ 형식으로 5개 구성, 각 문제마다 [정답]과 [해설]을 포함하세요.
-5. [해설 작성 규칙]: 해설에 "이 문제는 ~을 묻고 있다", "이것은 ~를 유도한 함정이다" 같은 출제자의 의도를 설명하는 메타적 코멘트를 절대 금지합니다. 오직 문법적 팩트에 기반한 건조하고 명확한 해설만 작성하세요.
+5. [해설 작성 규칙]: 해설에 "이 문제는 ~을 묻고 있다" 같은 메타적 코멘트를 절대 금지합니다. 오직 문법적 팩트에 기반한 건조하고 명확한 해설만 작성하세요.
 6. [무결성 자체 검토]: 출력하기 전, ①보기 개수와 정답 번호가 일치하는지, ②정답 번호와 해설에서 설명하는 내용이 정확히 일치하는지 스스로 점검하여 논리적 모순을 100% 제거하세요.
 {integration_rule}
 === 출력 형식 (반드시 준수) ===
@@ -570,8 +563,11 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                             result_text = response.choices[0].message.content
 
                         if not result_text:
-                            last_critical_error = "AI 엔진이 빈 응답을 반환했습니다. (보안 필터링 또는 일시적 통신 오류)"
-                            break # 🚀 [안전장치 2] 에러 시 무의미한 재시도 즉각 중단!
+                            last_critical_error = "AI 엔진이 빈 응답을 반환했습니다."
+                            break 
+
+                        # 🚀 [핵심 1] 화면에 뿌려주기 위해 날것의 원본을 무조건 변수에 저장해 둡니다.
+                        last_raw_text = result_text 
 
                         problems = result_text.split("【문제")
                         parsed_valid_in_this_attempt = []
@@ -583,7 +579,6 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                                 
                             full_text = "【문제 " + prob_text if prob_text.startswith(" ") else "【문제" + prob_text
                             
-                            # 🚀 [추가] 검증기 호출부 (오픈라우터에 존재하는 안전한 모델명 강제 고정)
                             if is_google_native:
                                 validator_client = genai.GenerativeModel("gemini-1.5-pro")
                                 validator_model_name = "gemini-1.5-pro"
@@ -602,7 +597,6 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                             if not is_valid:
                                 print(f"⚠️ [검증 실패]: {feedback}")
                             
-                            # 통과한 문제만 합격 처리하고 목표치에서 차감
                             if is_valid and remaining_specs:
                                 parsed_valid_in_this_attempt.append(full_text)
                                 remaining_specs.pop(0)
@@ -610,12 +604,10 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                         valid_problems_texts.extend(parsed_valid_in_this_attempt)
                         
                     except Exception as e:
-                        # 🚀 [안전장치 3] 통신 에러가 나면 조용히 재시도하지 않고 아예 박살내버림!
                         last_critical_error = str(e)
-                        print(f"🚨 통신/API 에러 발생: {last_critical_error}")
-                        break # While 루프 탈출
+                        print(f"🚨 통신 에러 발생: {last_critical_error}")
+                        break
 
-                # 🚀 한 유형에 대한 While 루프(최대 3회) 종료 후 처리
                 if valid_problems_texts:
                     final_text = "\n\n".join(valid_problems_texts)
                     if remaining_specs:
@@ -623,14 +615,15 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                     batch_results.append({"type": qtype, "text": final_text})
                 else:
                     if last_critical_error:
-                        # 🚀 통신 에러의 원인을 화면에 대문짝만하게 띄웁니다!
-                        batch_results.append({"type": qtype, "text": f"[통신오류] 🚨 서버 연결 실패 또는 API 문제:\n\n{last_critical_error}"})
+                        batch_results.append({"type": qtype, "text": f"[통신오류] 🚨 서버 연결 실패:\n\n{last_critical_error}"})
                     else:
-                        batch_results.append({"type": qtype, "text": "[검증실패] 3회의 자체 검증을 시도했으나 모두 불합격 처리되었습니다."})
+                        # 🚀 [핵심 2] 3번 모두 실패하면, 화면에 에러 문구와 함께 원본(last_raw_text)을 적나라하게 출력!
+                        error_msg = f"[검증실패] 3회의 검증을 시도했으나 모두 불합격 처리되었습니다.\n\n"
+                        error_msg += f"=== 🚨 [AI가 생성한 원본 데이터 보기] ===\n\n{last_raw_text}"
+                        batch_results.append({"type": qtype, "text": error_msg})
 
             progress.progress(1.0, text="✅ 생성 프로세스 완료!")
 
-            # 🚀 [히스토리 저장]
             entry = {
                 "major": selected_major,
                 "mid": selected_mid,
@@ -644,7 +637,7 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
             st.session_state.pending = [entry]
             st.rerun()
 
-# ── 결과 표시 (중복 에러 원천 차단) ─────────────────────────────────────────
+    # ── 결과 표시 ─────────────────────────────────────────
     if st.session_state.pending:
         entry = st.session_state.pending[-1]
         st.markdown("---")
@@ -652,21 +645,25 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
 
         for res in entry["results"]:
             with st.expander(f"📌 [{res['type']}] 유형 문제", expanded=True):
-                
-                # 🚀 [수정] 텍스트가 None이더라도 무조건 문자열로 취급하여 화면 뻗음 방지!
                 raw = str(res.get("text", ""))
                 
-                # 통신 에러가 발생하면 붉은 에러창 띄우기
-                if raw.startswith("[오류]"):
-                    st.error("⚠️ 이 유형의 문제를 생성하는 중 통신 오류가 발생했습니다.")
-                    st.warning(raw) # 어떤 오류인지 상세 내용 표시
-                    continue # 앱을 끄지 않고 다음 문제 유형을 화면에 계속 그립니다!
+                # 통신 에러 UI
+                if raw.startswith("[통신오류]"):
+                    st.error("⚠️ 통신 에러가 발생하여 생성이 중단되었습니다.")
+                    st.warning(raw)
+                    continue 
                 
+                # 🚀 [핵심 3] 검증 실패 UI (원본 렌더링 지원)
+                if raw.startswith("[검증실패]"):
+                    st.error("⚠️ 3회의 자동 재생성에도 논리 검증을 통과하지 못했습니다.")
+                    st.info("💡 검증기가 문제를 통과시키지 못한 원인을 아래 원본 텍스트에서 확인하세요.")
+                    st.markdown(raw.replace("\n", "  \n")) # 원본 화면 출력!
+                    continue
+
                 problems = raw.split("【문제")
                 
-                # AI가 양식을 지키지 못했을 때 원본 무조건 보여주기
                 if len(problems) <= 1:
-                    st.warning("⚠️ 양식이 깨졌거나 통신 오류가 발생했습니다. 원본을 확인하세요.")
+                    st.warning("⚠️ 양식이 깨졌거나 렌더링 오류가 발생했습니다. 원본을 확인하세요.")
                     st.markdown(raw.replace("\n", "  \n"))
                     continue
 
@@ -704,6 +701,8 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                 
                 if not valid_problem_found:
                     st.markdown(raw.replace("\n", "  \n"))
+
+        # 다운로드 버튼 영역 (이하 기존 코드 유지...)
 
 # 🚀 [수정 1] 다운로드 버튼 (텍스트 + 워드 2가지 옵션 제공)
         combined = f"[생성 정보]\n단원: {entry['major']} > {entry['mid']} > {entry['minor']}\n난이도: {entry['difficulty']}\n\n"
