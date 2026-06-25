@@ -517,10 +517,10 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
 
 ---
 """
-        try:
+            try:
                 # 1. 생성 호출
                 if is_google_native:
-                    model = genai.GenerativeModel("gemini-1.5-pro") # 필요시 3.1로 수정
+                    model = genai.GenerativeModel("gemini-3.1-pro") # 필요시 3.1로 수정
                     response = model.generate_content(prompt)
                     result_text = response.text
                 else:
