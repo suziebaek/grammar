@@ -613,7 +613,77 @@ D. 예외성
             st.session_state.pending = [entry]
             
             st.rerun()
+
+            # ⬆️ (기존 코드) 여기까지가 생성 및 저장 완료 부분입니다.
+
+    # 🚀 [복구] 여기서부터가 날아갔던 결과 화면 출력 코드입니다! (붙여넣기)
+    # ── 결과 표시 ─────────────────────────────────────────
+    if st.session_state.pending:
+        entry = st.session_state.pending[-1]
+        st.markdown("---")
+        st.markdown(f"### 📄 생성 결과 — {entry['major']} > {entry['mid']} > {entry['minor']} ({entry.get('difficulty', '')})")
+
+        for res in entry["results"]:
+            with st.expander(f"📌 [{res['type']}] 유형 문제", expanded=True):
+                
+                # [추가] 검증기 결과 뱃지
+                if not res.get("is_valid", True):
+                    st.error(f"⚠️ **검증 실패 사유:** {res.get('feedback')}")
+                else:
+                    st.success("✅ **검증 통과**")
+
+                raw = str(res.get("text", ""))
+                
+                # 통신 에러 UI
+                if raw.startswith("[통신오류]"):
+                    st.error("⚠️ 통신 에러가 발생하여 생성이 중단되었습니다.")
+                    st.warning(raw)
+                    continue 
+
+                problems = raw.split("【문제")
+                
+                if len(problems) <= 1:
+                    st.warning("⚠️ 양식이 깨졌거나 렌더링 오류가 발생했습니다. 원본을 확인하세요.")
+                    st.markdown(raw.replace("\n", "  \n"))
+                    continue
+
+                valid_problem_found = False
+                for prob in problems:
+                    prob = prob.strip()
+                    if not prob or not prob[0].isdigit():
+                        continue
+                    
+                    valid_problem_found = True
+                    full = "【문제" + prob
+                    parts = {}
+                    tags = ["발문", "보기/지문", "정답", "해설"]
+                    for tag in tags:
+                        key = f"[{tag}]"
+                        if key in full:
+                            start = full.index(key) + len(key)
+                            nexts = [f"[{t}]" for t in tags if f"[{t}]" in full[start:]]
+                            end = full.index(nexts[0], start) if nexts else len(full)
+                            parts[tag] = full[start:end].replace("---", "").strip()
+
+                    st.markdown('<div class="question-box">', unsafe_allow_html=True)
+                    num_part = prob[:10].split("】")[0]
+                    st.markdown(f"**【문제{num_part}】**")
+                    if "발문" in parts:
+                        st.markdown(f"**{parts['발문']}**")
+                    if "보기/지문" in parts:
+                        st.markdown(parts["보기/지문"])
+                    if "정답" in parts:
+                        st.markdown(f'<div class="answer-box">✅ <b>정답:</b> {parts["정답"]}</div>', unsafe_allow_html=True)
+                    if "해설" in parts:
+                        st.markdown("💡 **해설:**")
+                        st.markdown(parts["해설"].replace("\n", "  \n"))
+                    st.markdown('</div>', unsafe_allow_html=True)
+                
+                if not valid_problem_found:
+                    st.markdown(raw.replace("\n", "  \n"))
+
 # ════════════════════════════════════════════════════════
+
 # TAB 2 : 기출 문제 탐색 
 # ════════════════════════════════════════════════════════
 with tab2:
