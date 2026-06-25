@@ -532,7 +532,7 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
 # 3. 프롬프트 정의 (기존 내용 유지)
                 # ... (이 앞부분은 기존 코드 그대로 두세요) ...
 
-                # 4. 생성 및 배치 검증 (반복 없음)
+# 4. 생성 및 배치 검증 (반복 없음)
                 try:
                     # [생성 호출]
                     if is_google_native:
@@ -547,13 +547,14 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                             max_tokens=7000
                         )
                         result_text = response.choices[0].message.content
-# [수정] 쪼개기 직전과 직후에 로그 추가
+
+                    # [결과 쪼개기]
                     problems = result_text.split("【문제")
-                    st.write(f"DEBUG: 생성된 문제 수 = {len(problems)-1}개") # 1단계 확인
-                
-                # [배치 검증 호출]
-                    st.write("DEBUG: 검증기 호출 시작...") # 2단계 확인
-                
+                    
+                    # [디버깅] 검증 시작 전 로그
+                    st.write("DEBUG: 검증기 호출 시작...") 
+                    
+                    # [배치 검증 호출] 전체를 한 번에 검증
                     batch_feedback = validate_batch_llm(
                         full_text=result_text,
                         client=client,
@@ -561,7 +562,9 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                         target_model="google/gemini-3.1-pro-preview",
                         use_llm=use_validator
                     )
-                st.write("DEBUG: 검증기 호출 완료.") # 3단계 확인
+                    
+                    # [디버깅] 검증 완료 후 로그
+                    st.write("DEBUG: 검증기 호출 완료.") 
                     
                     # [결과 저장 루프]
                     for i, prob_text in enumerate(problems[1:]):
@@ -580,7 +583,7 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                         })
 
                 except Exception as e:
-                    # [예외 처리] try 블록에 오류가 생기면 여기로 즉시 진입
+                    # [예외 처리]
                     batch_results.append({
                         "type": qtype, 
                         "text": f"[통신오류] {str(e)}", 
