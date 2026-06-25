@@ -38,7 +38,7 @@ def validate_batch_llm(full_text, client, is_google_native, target_model, use_ll
     if not use_llm:
         return {i: (True, "PASS") for i in range(1, 20)} # 임시 넉넉한 인덱스
 
-val_prompt = f"""
+    val_prompt = f"""
     [문제 세트]
     {full_text}
     
