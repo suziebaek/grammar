@@ -260,7 +260,7 @@ if "pending" not in st.session_state:
 
 tab1, tab2, tab3 = st.tabs(["🤖 AI 문제 생성", "📚 기출 문제 탐색", "📋 생성 기록"])
 
-## ════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════
 # TAB 1 : AI 문제 생성
 # ════════════════════════════════════════════════════════
 with tab1:
@@ -333,6 +333,7 @@ with tab1:
             label_visibility="collapsed",
         )
 
+        # ────────────────────────────────────────────────────────
         st.markdown("---")
         st.markdown("**📊 난이도 배정**")
         
@@ -365,10 +366,12 @@ with tab1:
         else:
             final_high, final_mid, final_low = val_high, val_mid, val_low
             
+        # 🚀 [수정] 변수명을 직관적으로 바꾸고 안내 문구를 '총합'의 의미로 변경
         total_num = final_high + final_mid + final_low
         
         if is_manual:
             st.success(f"✅ 선택한 유형에 **총 {total_num}개**의 문제가 골고루 배정됩니다.")
+        # ────────────────────────────────────────────────────────
 
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -377,30 +380,26 @@ with tab1:
             ref_pool = QUESTIONS
         st.info(f"📎 참고 기출: {len(ref_pool)}문제 ('{selected_major}' 관련)")
             
-    # ── 생성 버튼 영역 ─────────────────────────────────────────
+    # ── 생성 버튼 ─────────────────────────────────────────
     st.markdown("---")
-    gen_col1, gen_col2, gen_col3 = st.columns([2.5, 1.5, 1])
+    gen_col1, gen_col2 = st.columns([3, 1])
     with gen_col1:
         generate_btn = st.button("🚀 문제 생성하기", use_container_width=True)
     with gen_col2:
-        use_validator = st.toggle("🛡️ LLM 검증기 작동", value=True, help="AI가 논리적 오류를 검수합니다. 끄면 2배 빨라집니다.")
-    with gen_col3:
         clear_btn = st.button("🗑️ 결과 초기화", use_container_width=True)
 
     if clear_btn:
         st.session_state.pending = []
         st.rerun()
 
-# ── 생성 실행 영역 ─────────────────────────────────────────
+
+# ── 생성 실행 ─────────────────────────────────────────
     if generate_btn:
         total_num = final_high + final_mid + final_low
         
-        # 🚀 [핵심 방어] API 키 앞뒤에 붙은 안 보이는 공백을 강제로 제거합니다!
-        safe_api_key = raw_api_key.strip() if raw_api_key else ""
-        
         if total_num == 0:
             st.error("⚠️ 생성할 문제 개수가 0개입니다. 난이도별 문항 수를 1개 이상 배정해주세요.")
-        elif not safe_api_key:
+        elif not raw_api_key:
             st.error("⚠️ 사이드바에 통합 API Key를 입력해주세요.")
         elif not selected_types:
             st.error("⚠️ 문제 유형을 하나 이상 선택해주세요.")
@@ -412,19 +411,20 @@ with tab1:
             client = None
             is_google_native = False
             
-            if safe_api_key.startswith("sk-or-"):
-                client = OpenAI(base_url="[https://openrouter.ai/api/v1](https://openrouter.ai/api/v1)", api_key=safe_api_key)
-            elif safe_api_key.startswith("AIzaSy"):
-                genai.configure(api_key=safe_api_key)
+            if raw_api_key.startswith("sk-or-"):
+                client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=raw_api_key)
+            elif raw_api_key.startswith("AIzaSy"):
+                genai.configure(api_key=raw_api_key)
                 is_google_native = True
-            elif len(safe_api_key) == 32 or "azure" in safe_api_key.lower():
+            elif len(raw_api_key) == 32 or "azure" in raw_api_key.lower():
                 try:
-                    client = AzureOpenAI(api_key=safe_api_key, api_version="2024-02-15-preview", azure_endpoint=azure_endpoint)
+                    client = AzureOpenAI(api_key=raw_api_key, api_version="2024-02-15-preview", azure_endpoint=azure_endpoint)
                 except NameError:
                     st.error("Azure 연결을 위한 엔드포인트 URL을 입력해주세요.")
             else:
-                client = OpenAI(api_key=safe_api_key)
+                client = OpenAI(api_key=raw_api_key)
 
+# 🚀 [수정 3] 기존의 단순 "상/중/하" 리스트 대신, "레벨 + 무작위 상세 조합" 딕셔너리로 할당표 생성!
             diff_targets = []
             for _ in range(final_high): diff_targets.append({"level": "상", "comb": random.choice(HARD_COMBS)})
             for _ in range(final_mid): diff_targets.append({"level": "중", "comb": random.choice(MID_COMBS)})
@@ -432,23 +432,23 @@ with tab1:
             
             allocations = {t: [] for t in selected_types}
             for i, diff_dict in enumerate(diff_targets):
+                # 라운드 로빈 분배는 그대로 유지
                 allocations[selected_types[i % len(selected_types)]].append(diff_dict)
-
-            from validator import validate_question_llm
 
             for idx, qtype in enumerate(selected_types):
                 type_diffs = allocations[qtype]
+                
                 if not type_diffs:
                     continue 
                     
-                remaining_specs = type_diffs.copy()
-                valid_problems_texts = []
-                max_attempts = 3
-                attempt = 0
-                
+                num_for_this_type = len(type_diffs)
+                progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {num_for_this_type}문제 생성 중...")
+
                 type_matched = [q for q in QUESTIONS if q["t"] == qtype]
                 unit_matched = [q for q in QUESTIONS if selected_major in q["u"]]
                 qtype_pool = type_matched if len(type_matched) >= 3 else (unit_matched if unit_matched else QUESTIONS)
+                
+                # 🚀 [수정 2] 참고 기출문제 예시를 최대 5개 -> 8개로 확대
                 ref_samples = random.sample(qtype_pool, min(8, len(qtype_pool)))
                 ref_text = "\n\n".join([
                     f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}\n해설: {q['e']}"
@@ -457,29 +457,16 @@ with tab1:
 
                 integration_rule = ""
                 if selected_minor_label == "통합개념":
-                    integration_rule = "7. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 여러 출제 포인트들을 반드시 골고루 활용하여 문제를 창작하세요.\n"
+                    integration_rule = "7. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
 
- # 🚀 루프 밖에서 에러 원인을 담을 변수 생성
-                last_critical_error = ""
+                # 🚀 [핵심] 이 유형에 배정된 문항마다 구체적인 A,B,C,D 값을 프롬프트에 꽂아줌
+                q_assignments = ""
+                for i, d_dict in enumerate(type_diffs):
+                    lvl = d_dict["level"]
+                    a, b, c, d = d_dict["comb"]
+                    q_assignments += f"【문제 {i+1}】 타겟 난이도: [{lvl}] (상세 조건: A={a}점, B={b}점, C={c}점, D={d}점)\n"
 
-                while remaining_specs and attempt < max_attempts:
-                    attempt += 1
-                    current_request_count = len(remaining_specs)
-                    last_critical_error = "" # 매 시도마다 초기화
-                    
-                    if attempt == 1:
-                        progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {len(type_diffs)}문제 생성 중...")
-                    else:
-                        progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 재생성 중 (시도 {attempt}/{max_attempts})...")
-
-                    q_assignments = ""
-                    for i, d_dict in enumerate(remaining_specs):
-                        lvl = d_dict["level"]
-                        a, b, c, d = d_dict["comb"]
-                        q_assignments += f"【문제 {len(valid_problems_texts) + i + 1}】 타겟 난이도: [{lvl}] (상세 조건: A={a}점, B={b}점, C={c}점, D={d}점)\n"
-
-                    # (프롬프트 텍스트 부분은 기존 prompt = f"""...""" 그대로 유지하시면 됩니다)
-                    prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
+                prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
 
 === [역할 A] 기출문제 벤치마킹 ===
 아래 기출문제를 통해 발문 형식, 선지 구성 방식, 보기 스타일을 완벽하게 모방하세요.
@@ -493,31 +480,34 @@ with tab1:
 
 === 출제 조건 ===
 - 문제 유형: {qtype}
-- 총 생성 개수: {current_request_count}개
+- 총 생성 개수: {num_for_this_type}개
+- 추가 요청: {extra if extra else '없음'}
 
 === ★ [역할 C] 난이도 평가 척도 및 배정표 (필수 적용) ★ ===
 당신은 할당된 타겟 난이도에 맞추기 위해 아래 4가지 항목(A~D)의 점수를 합산하여 문항을 설계해야 합니다. (총점 0~8점)
 
 [항목별 점수 기준]
-A. 필요 문법 규칙 개수 (0점: 1개 / 1점: 2개 / 2점: 3개 이상)
-B. 단서 위치 (0점: 같은 절 내 / 1점: 인접 문장 / 2점: 문단 전체)
-C. 오답 변별력 (0점: 소거 쉬움 / 1점: 오답 1개가 변형 / 2점: 오답 2개 이상이 변형)
-D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규칙만 매칭)
+A. 필요 문법 규칙 개수 (정답 도출에 필요한 별개 문법 규칙 수)
+   - 0점: 1개 / 1점: 2개 / 2점: 3개 이상
+B. 단서 위치 (정답을 결정하는 단서/키워드의 위치)
+   - 0점: 빈칸과 같은 절(clause) 내 / 1점: 빈칸과 다른 절(인접 문장) / 2점: 문단 전체를 읽어야 확인 가능
+C. 오답 변별력 (매력적인 오답의 개수)
+   - 0점: 오답 전부 무관한 규칙(소거 쉬움) / 1점: 오답 중 1개가 정답 규칙의 변형 / 2점: 오답 2개 이상이 정답 규칙의 변형(고난도 변별)
+D. 예외성 (규칙의 특수성)
+   - 0점: 기본 규칙 1개만 매칭 / 1점: 기본 규칙 + 예외 규칙 1개 매칭 / 2점: 예외 규칙만 매칭, 또는 예외의 예외
 
 === ★ [역할 D] 문항별 난이도 배정표 (명령) ★ ===
-반드시 아래 지정된 번호와 난이도 타겟(점수 구간) 및 [상세 조건]에 맞춰서 정확히 {current_request_count}문제를 창작하세요.
+반드시 아래 지정된 번호와 난이도 타겟(점수 구간) 및 [상세 조건]에 맞춰서 정확히 {num_for_this_type}문제를 창작하세요.
+AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B, C, D 상세 조건을 100% 그대로 적용하여 문제를 설계하세요.
 {q_assignments}
 
 === ★ 출제 규칙 (엄격 준수) ===
-1. [지문 창작]: 기출의 문장 뼈대는 모방하되, 주어/어휘/상황을 완전히 새로운 내용으로 창작하세요. 
-2. [지문 난이도]: 문장 생성 시 Lexile 800L 수준으로 통제하세요. 단, 출제해야 할 핵심 문법 개념을 표현하기 위해 불가피한 경우에만 800L 이상의 복잡한 구조를 허용합니다.
-3. [지문 길이]: 지문을 생성하는 문제의 경우, 지문의 길이를 최대 6문장 이내로 엄격하게 제한하세요.
-4. [고품질 오답 설계]: 'cans', 'musted' 같은 유치한 단어를 지어내는 것을 엄격히 금지합니다. 항목 C(오답 변별력)의 점수를 충족하기 위해 '주어와 동사 사이의 거리를 멀게 배치'하거나 '수식어를 복잡하게 중첩'시키는 교묘한 함정을 활용하세요.
-5. [형식 준수]: 선지는 ①②③④⑤ 형식으로 5개 구성, 각 문제마다 [정답]과 [해설]을 포함하세요.
-6. [해설 작성 규칙]: 메타적 코멘트를 절대 금지합니다. 
-   - [정답 해설]: 핵심 문법 규칙만 설명하며 최대 3문장 이하로 작성하세요. 반드시 정답 번호를 명시하세요.
-   - [오답 분석]: 정답을 제외한 나머지 4개의 선지만 각각 1문장으로 간결하게 설명하세요.
-7. [무결성 자체 검토]: 출력하기 전 정답 번호와 해설 내용이 일치하는지 논리적 모순을 100% 제거하세요.
+1. [지문 창작]: 기출의 문장 뼈대는 모방하되, 주어/어휘/상황(예: 과학, 역사, 시사 등)을 완전히 새로운 고등 모의고사 수준의 문장으로 창작하세요.
+2. [치명적 오답 설계]: 'cans', 'musted' 같이 존재하지 않는 유치한 단어를 지어내는 것을 엄격히 금지합니다.
+3. 오답(함정)을 만들 때는 주어와 동사 사이를 멀리 떨어뜨리거나 구문 분석을 요하도록 교묘하게 설계하세요.
+4. 선지는 ①②③④⑤ 형식으로 5개 구성, 각 문제마다 [정답]과 [해설]을 포함하세요.
+5. [해설 작성 규칙]: 해설에 "이 문제는 ~을 묻고 있다", "이것은 ~를 유도한 함정이다" 같은 출제자의 의도를 설명하는 메타적 코멘트를 절대 금지합니다. 오직 문법적 팩트에 기반한 건조하고 명확한 해설만 작성하세요.
+6. [무결성 자체 검토]: 출력하기 전, ①보기 개수와 정답 번호가 일치하는지, ②정답 번호와 해설에서 설명하는 내용이 정확히 일치하는지 스스로 점검하여 논리적 모순을 100% 제거하세요.
 {integration_rule}
 === 출력 형식 (반드시 준수) ===
 【문제 N】
@@ -525,103 +515,52 @@ D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규�
 내용
 
 [보기/지문]
-① 
-② 
-③ 
-④ 
-⑤ 
+① ...
+② ...
+③ ...
+④ ...
+⑤ ...
 
 [정답] 
-(여기에 정답 번호만 기재, 예: ③)
 
 [해설]
-[정답 해설]: 정답인 이유를 문법적으로 명확히 설명 (최대 3문장. 반드시 정답 번호 명시).
-[오답 분석]: 정답을 제외한 4개의 오답 선지에 대해서만 각각 1문장으로 분석.
-① 
-② 
-③ 
-④ 
-⑤ 
-(단, 정답 번호에 해당하는 원문자 기호는 출력하지 말고 삭제할 것)
+[정답 해설]: 정답인 이유를 문법적으로 명확히 설명.
+[오답 분석]: 나머지 선지들이 왜 틀렸는지(혹은 맞았는지) 각각 번호를 매겨 명확히 분석.
 [난이도 산출 내역]: 타겟 [(상/중/하)] / 지시받은 A(점)+B(점)+C(점)+D(점) = 총 (점)점
 
 ---
 """
-                    try:
-                        if is_google_native:
-                            gemini_model_name = selected_model.split("/")[-1] if "/" in selected_model else selected_model
-                            model = genai.GenerativeModel(gemini_model_name)
-                            response = model.generate_content(prompt)
-                            result_text = response.text
-                        else:
-                            target_model = selected_model.split("/")[-1] if "sk-" in safe_api_key and not safe_api_key.startswith("sk-or-") else selected_model
-                            response = client.chat.completions.create(
-                                model=target_model,
-                                messages=[{"role": "user", "content": prompt}],
-                                temperature=0.75,
-                                max_tokens=4000
-                            )
-                            result_text = response.choices[0].message.content
-
-                        if not result_text:
-                            last_critical_error = "API 서버가 빈 응답을 반환했습니다."
-                            break # 🚀 에러 시 즉시 루프 중단
-
-                        problems = result_text.split("【문제")
-                        parsed_valid_in_this_attempt = []
-                        
-                        for prob_text in problems[1:]:
-                            prob_text = prob_text.strip()
-                            if not prob_text or not prob_text[0].isdigit():
-                                continue
-                                
-                            full_text = "【문제 " + prob_text if prob_text.startswith(" ") else "【문제" + prob_text
-                            
-                            if is_google_native:
-                                validator_client = genai.GenerativeModel("gemini-3.1-pro-preview")
-                                validator_model_name = "gemini-3.1-pro-preview"
-                            else:
-                                validator_client = client
-                                validator_model_name = "google/gemini-1.5-pro" # 🚀 검증기 모델명은 오픈라우터에 실존하는 1.5-pro로 고정하여 에러 방지
-                            
-                            is_valid, feedback = validate_question_llm(
-                                full_text=full_text,
-                                client=validator_client,
-                                is_google_native=is_google_native,
-                                target_model=validator_model_name,
-                                use_llm=use_validator
-                            )
-                            
-                            if not is_valid:
-                                print(f"⚠️ [검증 실패 및 폐기]: {feedback}")
-                            
-                            if is_valid and remaining_specs:
-                                parsed_valid_in_this_attempt.append(full_text)
-                                remaining_specs.pop(0)
-
-                        valid_problems_texts.extend(parsed_valid_in_this_attempt)
-                        
-                    except Exception as e:
-                        # 🚀 [핵심 방어] 통신 에러 발생 시 즉시 중단하고 화면에 에러를 띄웁니다!
-                        last_critical_error = str(e)
-                        print(f"통신 에러로 즉시 중단: {last_critical_error}")
-                        break
-
-                # 🚀 루프 종료 후 최종 결과물 병합
-                if valid_problems_texts:
-                    final_text = "\n\n".join(valid_problems_texts)
-                    if remaining_specs:
-                        final_text += f"\n\n--- \n⚠️ **[시스템 안내]** 일부 문항이 논리 검증을 통과하지 못해 누락되었습니다."
-                    batch_results.append({"type": qtype, "text": final_text})
-                else:
-                    if last_critical_error:
-                        # 통신 에러로 실패한 경우 화면에 정확한 이유 표출
-                        batch_results.append({"type": qtype, "text": f"[통신오류] 🚨 서버 연결 실패 또는 API/모델 문제:\n\n{last_critical_error}\n\n👉 해결 팁: 입력하신 API 키가 유효한지, 또는 사이드바에서 선택한 모델 이름(예: {selected_model})이 실존하는 정확한 모델명인지 확인하세요."})
+                try:
+                    if is_google_native:
+                        gemini_model_name = "gemini-1.5-pro" if "gemini" in selected_model.lower() else "gemini-1.5-pro"
+                        model = genai.GenerativeModel(gemini_model_name)
+                        response = model.generate_content(prompt)
+                        result_text = response.text
                     else:
-                        batch_results.append({"type": qtype, "text": "[검증실패] 3회의 재생성을 시도했으나 논리 검증을 통과하지 못했습니다."})
+                        target_model = selected_model
+                        if "sk-" in raw_api_key and not raw_api_key.startswith("sk-or-") and "gpt" not in selected_model:
+                            target_model = "gpt-4o"
+                            
+                        response = client.chat.completions.create(
+                            model=target_model,
+                            messages=[{"role": "user", "content": prompt}],
+                            temperature=0.75,
+                            max_tokens=7000
+                        )
+                        result_text = response.choices[0].message.content
 
-            progress.progress(1.0, text="✅ 생성 프로세스 완료!")
+                    # 🚀 [추가] AI가 응답을 거부하거나 None을 반환했을 때의 안전장치
+                    if not result_text:
+                        result_text = "[오류] AI 엔진이 빈 응답을 반환했습니다. (보안 필터링 또는 일시적 통신 오류)"
 
+                    batch_results.append({"type": qtype, "text": str(result_text)})
+                except Exception as e:
+                    # 에러가 나더라도 앱이 뻗지 않고 텍스트로 기록한 뒤 "다음 유형" 생성을 계속 진행합니다!
+                    batch_results.append({"type": qtype, "text": f"[오류] 출제 엔진 통신 실패: {str(e)}"})
+
+            progress.progress(1.0, text="✅ 생성 완료!")
+
+            # 🚀 [히스토리 저장] 세트명에 직관적인 총 개수와 비율 기록
             entry = {
                 "major": selected_major,
                 "mid": selected_mid,
@@ -635,7 +574,7 @@ D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규�
             st.session_state.pending = [entry]
             st.rerun()
 
-    # ── 결과 표시 영역 ─────────────────────────────────────────
+# ── 결과 표시 (중복 에러 원천 차단) ─────────────────────────────────────────
     if st.session_state.pending:
         entry = st.session_state.pending[-1]
         st.markdown("---")
@@ -643,25 +582,21 @@ D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규�
 
         for res in entry["results"]:
             with st.expander(f"📌 [{res['type']}] 유형 문제", expanded=True):
+                
+                # 🚀 [수정] 텍스트가 None이더라도 무조건 문자열로 취급하여 화면 뻗음 방지!
                 raw = str(res.get("text", ""))
                 
-                # 🚀 추가된 통신 오류 화면 표시기
-                if raw.startswith("[통신오류]"):
-                    st.error("⚠️ 통신 에러가 발생하여 생성이 중단되었습니다.")
-                    st.warning(raw)
-                    continue 
-                elif raw.startswith("[오류]"):
+                # 통신 에러가 발생하면 붉은 에러창 띄우기
+                if raw.startswith("[오류]"):
                     st.error("⚠️ 이 유형의 문제를 생성하는 중 통신 오류가 발생했습니다.")
-                    st.warning(raw)
-                    continue 
-                elif raw.startswith("[검증실패]"):
-                    st.error("⚠️ 3회의 자체 검증 및 재생성을 시도했으나 논리 검증을 통과한 문제를 생성하지 못했습니다.")
-                    st.warning("팁: 프롬프트가 해당 포맷을 소화하기 어려워할 수 있습니다. LLM 검증기 토글을 끄고 생성해 보세요.")
-                    continue
-
+                    st.warning(raw) # 어떤 오류인지 상세 내용 표시
+                    continue # 앱을 끄지 않고 다음 문제 유형을 화면에 계속 그립니다!
+                
                 problems = raw.split("【문제")
+                
+                # AI가 양식을 지키지 못했을 때 원본 무조건 보여주기
                 if len(problems) <= 1:
-                    st.warning("⚠️ 양식이 깨졌거나 텍스트 렌더링 오류가 발생했습니다. 원본을 확인하세요.")
+                    st.warning("⚠️ 양식이 깨졌거나 통신 오류가 발생했습니다. 원본을 확인하세요.")
                     st.markdown(raw.replace("\n", "  \n"))
                     continue
 
@@ -700,6 +635,7 @@ D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규�
                 if not valid_problem_found:
                     st.markdown(raw.replace("\n", "  \n"))
 
+# 🚀 [수정 1] 다운로드 버튼 (텍스트 + 워드 2가지 옵션 제공)
         combined = f"[생성 정보]\n단원: {entry['major']} > {entry['mid']} > {entry['minor']}\n난이도: {entry['difficulty']}\n\n"
         combined += "\n\n" + "="*60 + "\n\n".join(
             f"【{r['type']} 유형】\n\n{r['text']}" for r in entry["results"]
@@ -724,8 +660,6 @@ D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규�
                 use_container_width=True,
                 key=f"dl_pending_docx_{len(st.session_state.history)}"
             )
-
-# (이하 탭 2, 탭 3 코드는 기존과 동일하게 유지)
 
 # ════════════════════════════════════════════════════════
 # TAB 2 : 기출 문제 탐색 
