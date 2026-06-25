@@ -596,7 +596,21 @@ D. 예외성
                         "is_valid": False, 
                         "feedback": "통신 실패"
                     })
-
+            
+            # 🚀 [여기서부터 중요!] 
+            # 위의 except 블록이 끝난 후, 들여쓰기를 앞으로 당겨서 for 루프와 위치를 맞춥니다.
+            entry = {
+                "major": selected_major,
+                "mid": selected_mid,
+                "minor": selected_minor_label,
+                "types": selected_types,
+                "results": batch_results,
+            }
+            st.session_state.history.append(entry)
+            st.session_state.pending = [entry]
+            
+            # 이 코드가 실행되어야 화면이 결과창으로 넘어갑니다.
+            st.rerun()
 # ════════════════════════════════════════════════════════
 # TAB 2 : 기출 문제 탐색 
 # ════════════════════════════════════════════════════════
