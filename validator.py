@@ -38,15 +38,21 @@ def validate_batch_llm(full_text, client, is_google_native, target_model, use_ll
     if not use_llm:
         return {i: (True, "PASS") for i in range(1, 20)} # 임시 넉넉한 인덱스
 
-    val_prompt = f"""
-    아래 생성된 문제 세트를 검토해. 각 문제마다 정답과 해설이 논리적으로 일치하는지 확인해.
-    
+val_prompt = f"""
     [문제 세트]
     {full_text}
     
-    [판단 규칙]
-    - 반드시 각 문제 번호별로 "문제 N: PASS" 또는 "문제 N: FAIL: 사유" 형식으로 작성해.
-    - 예: "문제 1: PASS", "문제 2: FAIL: 해설이 정답 번호와 다름"
+    [명령]
+    각 문제의 PASS/FAIL 여부만 판별해.
+    
+    [출력 규칙 - 반드시 준수]
+    - "문제 N: P" 또는 "문제 N: F: 사유" 형식으로만 출력해.
+    - P는 PASS, F는 FAIL을 의미해.
+    - 1번 문제부터 순서대로 한 줄에 하나씩만 작성해.
+    - 부연 설명, 서론, 결론 절대 금지. 
+    - 예시:
+    문제 1: P
+    문제 2: F: 오답해설 틀림
     """
     
     try:
