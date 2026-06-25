@@ -604,9 +604,9 @@ D. 예외성
                 "major": selected_major,
                 "mid": selected_mid,
                 "minor": selected_minor_label,
-                "difficulty": f"총 {len(batch_results)}문제",  # 기존에 쓰시던 f"총 {total_num}문제 (상{final_high}/...)" 코드가 있다면 그걸 쓰셔도 됩니다.
+                "difficulty": f"총 {total_num}문제 (상{final_high}/중{final_mid}/하{final_low})",
                 "types": selected_types,
-                "count": len(batch_results),
+                "count": total_num,
                 "results": batch_results,
             }
             st.session_state.history.append(entry)
