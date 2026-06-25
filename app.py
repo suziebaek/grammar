@@ -614,7 +614,19 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
 
         for res in entry["results"]:
             with st.expander(f"📌 [{res['type']}] 유형 문제", expanded=True):
+                
+                # --- [여기] 이 부분에 붙여넣으세요 ---
+                if not res.get("is_valid", True):
+                    st.error(f"⚠️ **검증 경고:** {res.get('feedback')}")
+                else:
+                    st.success("✅ **검증 통과**")
+                # ----------------------------------
+
                 raw = str(res.get("text", ""))
+                
+                # 통신 에러 UI
+                if raw.startswith("[통신오류]"):
+                    # ... (기존 코드)
                 
                 # 통신 에러 UI
                 if raw.startswith("[통신오류]"):
