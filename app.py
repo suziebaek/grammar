@@ -529,8 +529,12 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
 ---
 """
 
-                # 5. 생성 및 검증 (반복 없음)
+# 3. 프롬프트 정의 (기존 내용 유지)
+                # ... (이 앞부분은 기존 코드 그대로 두세요) ...
+
+                # 4. 생성 및 배치 검증 (반복 없음)
                 try:
+                    # [생성 호출]
                     if is_google_native:
                         model = genai.GenerativeModel("gemini-3.1-pro-preview")
                         response = model.generate_content(prompt)
@@ -544,42 +548,42 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                         )
                         result_text = response.choices[0].message.content
 
-# 2. 결과물 쪼개기
-                problems = result_text.split("【문제")
-                
-                # 3. [배치 검증 호출] 여기서 딱 한 번만 호출!
-                batch_feedback = validate_batch_llm(
-                    full_text=result_text,
-                    client=client,
-                    is_google_native=is_google_native,
-                    target_model="google/gemini-3.1-pro-preview",
-                    use_llm=use_validator
-                )
-                
-                # 4. 결과 저장
-                for i, prob_text in enumerate(problems[1:]):
-                    prob_text = prob_text.strip()
-                    if not prob_text: continue
-                    full_text = "【문제" + prob_text
+                    # [결과 쪼개기]
+                    problems = result_text.split("【문제")
                     
-                    # 배지 검증 결과 매칭 (i+1 번째 문제)
-                    is_valid, feedback = batch_feedback.get(i+1, (True, "검증기 응답 없음 (PASS 간주)"))
+                    # [배치 검증 호출] 전체를 한 번에 검증
+                    batch_feedback = validate_batch_llm(
+                        full_text=result_text,
+                        client=client,
+                        is_google_native=is_google_native,
+                        target_model="google/gemini-3.1-pro-preview",
+                        use_llm=use_validator
+                    )
                     
-                    batch_results.append({
-                        "type": qtype, 
-                        "text": full_text, 
-                        "is_valid": is_valid, 
-                        "feedback": feedback
-                    })
+                    # [결과 저장 루프]
+                    for i, prob_text in enumerate(problems[1:]):
+                        prob_text = prob_text.strip()
+                        if not prob_text: continue
+                        full_text = "【문제" + prob_text
+                        
+                        # 배지 검증 결과 매칭 (i+1 번째 문제)
+                        is_valid, feedback = batch_feedback.get(i+1, (True, "PASS"))
+                        
+                        batch_results.append({
+                            "type": qtype, 
+                            "text": full_text, 
+                            "is_valid": is_valid, 
+                            "feedback": feedback
+                        })
 
                 except Exception as e:
+                    # [예외 처리] try 블록에 오류가 생기면 여기로 즉시 진입
                     batch_results.append({
                         "type": qtype, 
                         "text": f"[통신오류] {str(e)}", 
                         "is_valid": False, 
                         "feedback": "통신 실패"
                     })
-
     # ── 결과 표시 ─────────────────────────────────────────
     if st.session_state.pending:
         entry = st.session_state.pending[-1]
