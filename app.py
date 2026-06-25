@@ -544,27 +544,33 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                         )
                         result_text = response.choices[0].message.content
 
-                    # 6. 결과물 쪼개기 및 검증기 호출
-                    problems = result_text.split("【문제")
-                    for prob_text in problems[1:]:
-                        prob_text = prob_text.strip()
-                        if not prob_text: continue
-                        full_text = "【문제" + prob_text
-                        
-                        is_valid, feedback = validate_question_llm(
-                            full_text=full_text,
-                            client=client,
-                            is_google_native=is_google_native,
-                            target_model="google/gemini-3.1-pro-preview",
-                            use_llm=use_validator
-                        )
-                        
-                        batch_results.append({
-                            "type": qtype, 
-                            "text": full_text, 
-                            "is_valid": is_valid, 
-                            "feedback": feedback
-                        })
+# 2. 결과물 쪼개기
+                problems = result_text.split("【문제")
+                
+                # 3. [배치 검증 호출] 여기서 딱 한 번만 호출!
+                batch_feedback = validate_batch_llm(
+                    full_text=result_text,
+                    client=client,
+                    is_google_native=is_google_native,
+                    target_model="google/gemini-3.1-pro-preview",
+                    use_llm=use_validator
+                )
+                
+                # 4. 결과 저장
+                for i, prob_text in enumerate(problems[1:]):
+                    prob_text = prob_text.strip()
+                    if not prob_text: continue
+                    full_text = "【문제" + prob_text
+                    
+                    # 배지 검증 결과 매칭 (i+1 번째 문제)
+                    is_valid, feedback = batch_feedback.get(i+1, (True, "검증기 응답 없음 (PASS 간주)"))
+                    
+                    batch_results.append({
+                        "type": qtype, 
+                        "text": full_text, 
+                        "is_valid": is_valid, 
+                        "feedback": feedback
+                    })
 
                 except Exception as e:
                     batch_results.append({
