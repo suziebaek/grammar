@@ -34,3 +34,44 @@ def validate_question_llm(full_text, client, is_google_native, target_model, use
         return True, "PASS"
     except Exception as e:
         return False, f"FAIL: 통신 오류 ({str(e)})"
+def validate_batch_llm(full_text, client, is_google_native, target_model, use_llm=True):
+    if not use_llm:
+        return {i: (True, "PASS") for i in range(1, 20)} # 임시 넉넉한 인덱스
+
+    val_prompt = f"""
+    아래 생성된 문제 세트를 검토해. 각 문제마다 정답과 해설이 논리적으로 일치하는지 확인해.
+    
+    [문제 세트]
+    {full_text}
+    
+    [판단 규칙]
+    - 반드시 각 문제 번호별로 "문제 N: PASS" 또는 "문제 N: FAIL: 사유" 형식으로 작성해.
+    - 예: "문제 1: PASS", "문제 2: FAIL: 해설이 정답 번호와 다름"
+    """
+    
+    try:
+        if is_google_native:
+            response = client.generate_content(val_prompt)
+            result = response.text
+        else:
+            response = client.chat.completions.create(
+                model=target_model,
+                messages=[{"role": "user", "content": val_prompt}],
+                temperature=0.0
+            )
+            result = response.choices[0].message.content
+            
+        # 결과 파싱 (문제 번호별로 딕셔너리 생성)
+        batch_map = {}
+        for line in result.split('\n'):
+            if "문제" in line and (":" in line):
+                try:
+                    parts = line.split(":", 1)
+                    idx = int(parts[0].replace("문제", "").strip())
+                    status = parts[1].strip()
+                    is_valid = "FAIL" not in status
+                    batch_map[idx] = (is_valid, status)
+                except: continue
+        return batch_map
+    except Exception as e:
+        return {}
