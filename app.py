@@ -533,7 +533,7 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                 # ... (이 앞부분은 기존 코드 그대로 두세요) ...
 
 # 4. 생성 및 배치 검증 (반복 없음)
-try:
+                try:
                     # [생성 호출]
                     if is_google_native:
                         model = genai.GenerativeModel("gemini-3.1-pro-preview")
