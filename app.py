@@ -459,7 +459,7 @@ with tab1:
                 if selected_minor_label == "통합개념":
                     integration_rule = "7. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 여러 출제 포인트들을 반드시 골고루 활용하여 문제를 창작하세요.\n"
 
-                # 🚀 루프 밖에서 에러 원인을 담을 변수 생성
+ # 🚀 루프 밖에서 에러 원인을 담을 변수 생성
                 last_critical_error = ""
 
                 while remaining_specs and attempt < max_attempts:
@@ -470,7 +470,7 @@ with tab1:
                     if attempt == 1:
                         progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {len(type_diffs)}문제 생성 중...")
                     else:
-                        progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 오류 문항 {current_request_count}개 재생성 중 (시도 {attempt}/{max_attempts})...")
+                        progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 재생성 중 (시도 {attempt}/{max_attempts})...")
 
                     q_assignments = ""
                     for i, d_dict in enumerate(remaining_specs):
@@ -478,6 +478,7 @@ with tab1:
                         a, b, c, d = d_dict["comb"]
                         q_assignments += f"【문제 {len(valid_problems_texts) + i + 1}】 타겟 난이도: [{lvl}] (상세 조건: A={a}점, B={b}점, C={c}점, D={d}점)\n"
 
+                    # (프롬프트 텍스트 부분은 기존 prompt = f"""...""" 그대로 유지하시면 됩니다)
                     prompt = f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
 
 === [역할 A] 기출문제 벤치마킹 ===
@@ -564,7 +565,7 @@ D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규�
 
                         if not result_text:
                             last_critical_error = "API 서버가 빈 응답을 반환했습니다."
-                            continue
+                            break # 🚀 에러 시 즉시 루프 중단
 
                         problems = result_text.split("【문제")
                         parsed_valid_in_this_attempt = []
@@ -581,7 +582,7 @@ D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규�
                                 validator_model_name = "gemini-3.1-pro-preview"
                             else:
                                 validator_client = client
-                                validator_model_name = "google/gemini-3.1-pro-preview"
+                                validator_model_name = "google/gemini-1.5-pro" # 🚀 검증기 모델명은 오픈라우터에 실존하는 1.5-pro로 고정하여 에러 방지
                             
                             is_valid, feedback = validate_question_llm(
                                 full_text=full_text,
@@ -601,23 +602,23 @@ D. 예외성 (0점: 기본 규칙 / 1점: 예외 규칙 1개 / 2점: 예외 규�
                         valid_problems_texts.extend(parsed_valid_in_this_attempt)
                         
                     except Exception as e:
-                        # 🚀 [핵심 방어] 에러를 숨기지 않고 저장합니다!
+                        # 🚀 [핵심 방어] 통신 에러 발생 시 즉시 중단하고 화면에 에러를 띄웁니다!
                         last_critical_error = str(e)
-                        print(f"통신 에러 발생: {last_critical_error}")
-                        pass # while 루프가 다음 시도를 진행함
+                        print(f"통신 에러로 즉시 중단: {last_critical_error}")
+                        break
 
-                # 루프 종료 후 결과 처리
+                # 🚀 루프 종료 후 최종 결과물 병합
                 if valid_problems_texts:
                     final_text = "\n\n".join(valid_problems_texts)
                     if remaining_specs:
-                        final_text += f"\n\n--- \n⚠️ **[시스템 안내]** 최대 3회 재생성을 시도했으나, {len(remaining_specs)}문항은 내부 논리 검증(정답 불일치 등)을 통과하지 못해 누락되었습니다."
+                        final_text += f"\n\n--- \n⚠️ **[시스템 안내]** 일부 문항이 논리 검증을 통과하지 못해 누락되었습니다."
                     batch_results.append({"type": qtype, "text": final_text})
                 else:
-                    # 🚀 [핵심 방어] 통신 에러가 있었다면 그 이유를 화면에 띄웁니다!
                     if last_critical_error:
-                        batch_results.append({"type": qtype, "text": f"[통신오류] 🚨 서버 연결 실패 또는 API 키 문제:\n\n{last_critical_error}"})
+                        # 통신 에러로 실패한 경우 화면에 정확한 이유 표출
+                        batch_results.append({"type": qtype, "text": f"[통신오류] 🚨 서버 연결 실패 또는 API/모델 문제:\n\n{last_critical_error}\n\n👉 해결 팁: 입력하신 API 키가 유효한지, 또는 사이드바에서 선택한 모델 이름(예: {selected_model})이 실존하는 정확한 모델명인지 확인하세요."})
                     else:
-                        batch_results.append({"type": qtype, "text": "[검증실패] 3회의 자체 검증 및 재생성을 시도했으나 유효한 논리의 문제를 1개도 생성하지 못했습니다."})
+                        batch_results.append({"type": qtype, "text": "[검증실패] 3회의 재생성을 시도했으나 논리 검증을 통과하지 못했습니다."})
 
             progress.progress(1.0, text="✅ 생성 프로세스 완료!")
 
