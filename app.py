@@ -579,13 +579,23 @@ AI가 임의로 점수를 배분하지 말고, 각 문항 옆에 부여된 A, B,
                                 
                             full_text = "【문제 " + prob_text if prob_text.startswith(" ") else "【문제" + prob_text
                             
+# 🚀 [수정] 검증기에 Gemini 3.1 Pro 모델을 정확히 지정
                             if is_google_native:
-                                validator_client = genai.GenerativeModel("gemini-1.5-pro")
-                                validator_model_name = "gemini-1.5-pro"
+                                # 구글 AI Studio 직결 시
+                                validator_client = genai.GenerativeModel("gemini-3.1-pro-preview")
+                                validator_model_name = "gemini-3.1-pro-preview"
                             else:
+                                # OpenRouter 통합 API 사용 시
                                 validator_client = client
-                                validator_model_name = "google/gemini-1.5-pro" 
+                                validator_model_name = "google/gemini-3.1-pro-preview"
                             
+                            is_valid, feedback = validate_question_llm(
+                                full_text=full_text,
+                                client=validator_client,
+                                is_google_native=is_google_native,
+                                target_model=validator_model_name,
+                                use_llm=use_validator
+                            )
                             is_valid, feedback = validate_question_llm(
                                 full_text=full_text,
                                 client=validator_client,
