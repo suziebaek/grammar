@@ -545,7 +545,11 @@ with tab1:
                         result_text = response.choices[0].message.content
 
                     # ... (이후 결과 쪼개기 및 검증 루프 동일) ...
-# 🚀 [핵심 방어 코드] AI 응답이 None(빈 값)으로 올 경우 에러를 강제로 발생시켜 안전하게 예외 처리함
+# 🚀 [추가] 마크다운 이스케이프 및 HTML 공백 강제 세탁
+                    if result_text:
+                        result_text = result_text.replace(r"\_", "_").replace("&nbsp;", " ")
+
+                    # 🚀 [핵심 방어 코드] AI 응답이 None(빈 값)으로 올 경우 에러를 강제로 발생시켜 안전하게 예외 처리함
                     if result_text is None:
                         raise Exception("AI가 텍스트 대신 빈 값을 반환했습니다. (안전 필터 차단 또는 서버 일시 오류)")
 
