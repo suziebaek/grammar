@@ -488,7 +488,7 @@ with tab1:
                             "gemini-3.1-pro-preview",
                             generation_config=genai.types.GenerationConfig(
                                 thinking_config=genai.types.ThinkingConfig(
-                                    thinking_level="medium"
+                                    thinking_level="high"
                                 )
                             )
                         )
