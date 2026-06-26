@@ -10,6 +10,7 @@ import io
 from docx import Document # 🚀 [추가] 워드 다운로드를 위한 라이브러리 (pip install python-docx 필요)
 from validator import validate_question_llm, validate_batch_llm  # <--- 이 줄이 반드시 있어야 합니다!
 from prompts import build_generation_prompt
+from datetime import datetime
 
 # ── 🚀 [추가] 난이도 세부 조합 (A, B, C, D) 81가지 경우의 수 사전 계산 ──
 ALL_COMBS = [(a, b, c, d) for a in (0, 1, 2) for b in (0, 1, 2) for c in (0, 1, 2) for d in (0, 1, 2)]
@@ -636,7 +637,12 @@ with tab1:
         st.markdown("---")
         set_text = f"[{entry['major']} > {entry['mid']} > {entry['minor']}] {entry.get('difficulty', '')}\n\n"
         set_text += "\n\n".join(f"【{r['type']}】\n\n{r.get('text', '')}" for r in entry["results"])
-        
+
+        # 날짜, 모델명 파싱 및 파일명 조합
+        now_str = datetime.now().strftime("%y%m%d")
+        safe_model = selected_model.split('/')[-1] 
+        f_name = f"{now_str}_{safe_model}_{entry['major']}_{entry['mid']}"
+    
         dl_col1, dl_col2 = st.columns(2)
         unique_key = len(st.session_state.history)  # 중복 방지를 위한 고유 번호
         
@@ -751,9 +757,8 @@ with tab3:
                     st.markdown(r["text"])
                     st.markdown("---")
 
-                # 개별 세트 다운로드
-                set_text = f"[{h['major']} > {h['mid']} > {h['minor']}] 난이도: {h['difficulty']}\n\n"
-                set_text += "\n\n".join(f"【{r['type']}】\n\n{r['text']}" for r in h["results"])
+                # 기존 파일명 변수 교체
+                set_f_name = f"{datetime.now().strftime('%y%m%d')}_{selected_model.split('/')[-1]}_{h['major']}_{h['mid']}"
                 
                 sc1, sc2 = st.columns(2)
                 with sc1:
