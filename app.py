@@ -650,7 +650,7 @@ with tab1:
             st.download_button(
                 "⬇️ 방금 만든 문제 다운로드 (.txt)",
                 data=set_text.encode("utf-8"),
-                file_name=f"생성문제_{entry['minor']}.txt",
+                file_name=f"{f_name}.txt",
                 mime="text/plain",
                 use_container_width=True,
                 key=f"dl_current_txt_{unique_key}"  # 중복 에러 완벽 차단
@@ -659,7 +659,7 @@ with tab1:
             st.download_button(
                 "📄 방금 만든 문제 다운로드 (.docx)",
                 data=create_word_document(entry, is_multiple=False),
-                file_name=f"생성문제_{entry['minor']}.docx",
+                file_name=f"{f_name}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 use_container_width=True,
                 key=f"dl_current_docx_{unique_key}" # 중복 에러 완벽 차단
@@ -765,7 +765,7 @@ with tab3:
                     st.download_button(
                         f"⬇️ 세트 {idx} 다운로드 (.txt)",
                         data=set_text.encode("utf-8"),
-                        file_name=f"세트{idx}_{h['minor']}.txt",
+                        file_name=f"{set_f_name}.txt",
                         mime="text/plain",
                         use_container_width=True,
                         key=f"dl_history_set_txt_{idx}",
@@ -774,7 +774,7 @@ with tab3:
                     st.download_button(
                         f"📄 세트 {idx} 다운로드 (.docx)",
                         data=create_word_document(h, is_multiple=False),
-                        file_name=f"세트{idx}_{h['minor']}.docx",
+                        file_name=f"{set_f_name}.docx",
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         use_container_width=True,
                         key=f"dl_history_set_docx_{idx}",
