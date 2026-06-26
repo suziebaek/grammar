@@ -705,7 +705,7 @@ with tab1:
         # 날짜, 모델명 파싱 및 파일명 조합
         now_str = datetime.now().strftime("%y%m%d")
         safe_model = selected_model.split('/')[-1] 
-        f_name = f"{now_str}_{safe_model}_{entry['major']}_{entry['mid']}"
+        f_name = f"{entry['major']}_{entry['mid']}_{now_str}_{safe_model}"
     
         dl_col1, dl_col2 = st.columns(2)
         unique_key = len(st.session_state.history)  # 중복 방지를 위한 고유 번호
