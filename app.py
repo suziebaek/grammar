@@ -560,7 +560,7 @@ with tab1:
                     else:
                         batch_feedback = {}
                     
-for i, prob_text in enumerate(problems[1:]):
+                    for i, prob_text in enumerate(problems[1:]):
                         prob_text = prob_text.strip()
                         if not prob_text: continue
                         full_text = "【문제" + prob_text
