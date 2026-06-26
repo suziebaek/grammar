@@ -317,34 +317,39 @@ with tab1:
 
         minor_items = CONCEPTS[selected_major][selected_mid] if CONCEPTS and selected_major in CONCEPTS and selected_mid in CONCEPTS[selected_major] else []
         
-        minor_labels = ["통합개념"] + [item["minor"] for item in minor_items if item["minor"]] if minor_items else []
+        minor_options = [item["minor"] for item in minor_items if item["minor"]] if minor_items else []
         
-        if minor_labels:
-            selected_minor_label = st.selectbox("③ 소분류", minor_labels, key="minor")
+        if minor_options:
+            selected_minors = st.multiselect("③ 소분류 (복수 선택 가능)", minor_options, default=minor_options, key="minor")
             
-            if selected_minor_label == "통합개념":
-                diff = "통합"
-                point_text = "\n\n".join([f"[{x['minor']}]\n{x.get('point', '')}" for x in minor_items if x.get("point")])
-                
-                st.markdown(f'④ 개념의 난이도: <span class="diff-badge diff-중상">통합 출제</span>', unsafe_allow_html=True)
-                with st.expander("💡 통합 출제 포인트 보기"):
-                    st.markdown(point_text)
-            else:
+            if not selected_minors:
+                selected_minor_label = "선택 안 됨"
+                diff = ""
+                point_text = ""
+                st.warning("소분류를 1개 이상 선택하세요.")
+            elif len(selected_minors) == 1:
+                selected_minor_label = selected_minors[0]
                 selected_item = next((x for x in minor_items if x["minor"] == selected_minor_label), None)
-                if selected_item:
-                    diff = selected_item["difficulty"]
-                    diff_class = f"diff-{diff}" if diff else ""
-                    point_text = selected_item.get("point", "")
-                    
-                    st.markdown(f'④ 개념의 난이도: <span class="diff-badge {diff_class}">{diff if diff else "미분류"}</span>', unsafe_allow_html=True)
-                    if point_text:
-                        with st.expander("💡 출제 포인트 보기"):
-                            st.markdown(point_text)
-                else:
-                    diff = ""
-                    point_text = ""
+                diff = selected_item["difficulty"] if selected_item else ""
+                diff_class = f"diff-{diff}" if diff else ""
+                point_text = selected_item.get("point", "")
+                
+                st.markdown(f'④ 개념의 난이도: <span class="diff-badge {diff_class}">{diff if diff else "미분류"}</span>', unsafe_allow_html=True)
+                if point_text:
+                    with st.expander("💡 출제 포인트 보기"):
+                        st.markdown(point_text)
+            else:
+                selected_minor_label = ", ".join(selected_minors)
+                diff = "복합"
+                selected_items = [x for x in minor_items if x["minor"] in selected_minors]
+                point_text = "\n\n".join([f"[{x['minor']}]\n{x.get('point', '')}" for x in selected_items if x.get("point")])
+                
+                st.markdown(f'④ 개념의 난이도: <span class="diff-badge diff-중상">복합 출제</span>', unsafe_allow_html=True)
+                with st.expander("💡 복합 출제 포인트 보기"):
+                    st.markdown(point_text)
         else:
             selected_minor_label = ""
+            selected_minors = []
             diff = ""
             point_text = ""
 
@@ -489,13 +494,12 @@ with tab1:
                 ref_samples = random.sample(qtype_pool, min(8, len(qtype_pool)))
                 ref_text = "\n\n".join([f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}\n해설: {q['e']}" for i, q in enumerate(ref_samples)])
 
-                # 2. 통합개념 로직
+# 2. 통합개념 로직
                 integration_rule = ""
-                if selected_minor_label == "통합개념":
-                    integration_rule = "9. [통합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 '통합개념' 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
-
-                # 3. 난이도 상세 조건 문자열 생성 (Lexile/소재 강제 주입 제거)
+                if len(selected_minors) > 1:
+                    integration_rule = f"9. [복합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 복합 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"                # 3. 난이도 상세 조건 문자열 생성 (Lexile/소재 강제 주입 제거)
                 q_assignments = ""
+                
                 for i, d_dict in enumerate(type_diffs):
                     lvl = d_dict["level"]
                     a, b, c, d = d_dict["comb"]
