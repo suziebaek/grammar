@@ -676,19 +676,7 @@ with tab1:
                             
 
 
-                    st.markdown('<div class="question-box">', unsafe_allow_html=True)
-                    num_part = prob[:10].split("】")[0]
-                    st.markdown(f"**【문제{num_part}】**")
-                    if "발문" in parts:
-                        st.markdown(f"**{parts['발문']}**")
-                    if "보기/지문" in parts:
-                        st.markdown(parts["보기/지문"].replace("\n", "  \n"))
-                    if "정답" in parts:
-                        st.markdown(f'<div class="answer-box">✅ <b>정답:</b> {parts["정답"]}</div>', unsafe_allow_html=True)
-                    if "해설" in parts:
-                        st.markdown("💡 **해설:**")
-                        st.markdown(parts["해설"].replace("\n", "  \n"))
-                    st.markdown('</div>', unsafe_allow_html=True)
+
                     st.markdown('<div class="question-box">', unsafe_allow_html=True)
                     num_part = prob[:10].split("】")[0]
                     st.markdown(f"**【문제{num_part}】**")
