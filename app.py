@@ -145,7 +145,7 @@ with st.sidebar:
     
     selected_model = st.selectbox(
         "🤖 출제 인공지능 엔진 모델",
-        options=["anthropic/claude-opus-4.8", "openai/gpt-5.5", "openai/gpt-5.1", "google/gemini-3.1-pro-preview"]
+        options=["anthropic/claude-opus-4.8", "openai/gpt-5.5", "openai/gpt-5.1", "google/gemini-3.1-pro-preview", "anthropic/claude-sonnet-4.6"]
     )
     
     detected_platform = "대기 중..."
