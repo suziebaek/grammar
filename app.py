@@ -55,7 +55,43 @@ st.set_page_config(
 )
 
 BASE = Path(__file__).parent
-
+# 선지 재정렬
+def sort_options(passage_text, ans_text, exp_text):
+    match = re.search(r'(.*?)(①.*)', passage_text, re.DOTALL)
+    if not match: return passage_text, ans_text, exp_text
+    
+    passage, opts_raw = match.group(1), match.group(2)
+    opts = re.split(r'([①-⑤])', opts_raw)[1:]
+    
+    if len(opts) != 10: return passage_text, ans_text, exp_text
+    
+    old_opt_dict = {opts[i]: opts[i+1].strip() for i in range(0, len(opts), 2)}
+    ans_match = re.search(r'[①-⑤]', ans_text)
+    old_ans = ans_match.group(0) if ans_match else None
+    
+    # 텍스트 길이를 기준으로 예전 번호(키)들을 정렬
+    old_keys = list(old_opt_dict.keys())
+    sorted_old_keys = sorted(old_keys, key=lambda k: len(old_opt_dict[k]))
+    
+    markers = ['①', '②', '③', '④', '⑤']
+    old_to_new = {old_k: markers[i] for i, old_k in enumerate(sorted_old_keys)}
+    
+    # 1. 보기 텍스트 재구성
+    new_opts_str = "\n"
+    for i, old_k in enumerate(sorted_old_keys):
+        new_opts_str += f"{markers[i]} {old_opt_dict[old_k]}\n"
+        
+    # 2. 정답 번호 재구성
+    new_ans = old_to_new.get(old_ans, ans_text) if old_ans else ans_text
+    
+    # 3. 해설 내 번호 일괄 치환 (충돌 방지용 임시 태그 사용)
+    new_exp_text = exp_text
+    for old_k in old_keys:
+        new_exp_text = new_exp_text.replace(old_k, f"__TEMP_{old_k}__")
+    for old_k, new_k in old_to_new.items():
+        new_exp_text = new_exp_text.replace(f"__TEMP_{old_k}__", new_k)
+        
+    return passage + new_opts_str.strip(), new_ans, new_exp_text
 # ── 데이터 로드 함수 (구글 시트 전용) ────────────────────────────────────────
 @st.cache_data(ttl=180)
 def load_gsheets_dual_db(q_url, c_url):
@@ -612,7 +648,29 @@ with tab1:
                             nexts = [f"[{t}]" for t in tags if f"[{t}]" in full[start:]]
                             end = full.index(nexts[0], start) if nexts else len(full)
                             parts[tag] = full[start:end].replace("---", "").strip()
+                            
+# 파이썬으로 선지 길이 정렬 및 정답 교체 적용
+                    if "보기/지문" in parts and "정답" in parts and "해설" in parts:
+                        new_passage, new_ans, new_exp = sort_options(
+                            parts["보기/지문"], parts["정답"], parts["해설"]
+                        )
+                        parts["보기/지문"] = new_passage
+                        parts["정답"] = new_ans
+                        parts["해설"] = new_exp
 
+                    st.markdown('<div class="question-box">', unsafe_allow_html=True)
+                    num_part = prob[:10].split("】")[0]
+                    st.markdown(f"**【문제{num_part}】**")
+                    if "발문" in parts:
+                        st.markdown(f"**{parts['발문']}**")
+                    if "보기/지문" in parts:
+                        st.markdown(parts["보기/지문"].replace("\n", "  \n"))
+                    if "정답" in parts:
+                        st.markdown(f'<div class="answer-box">✅ <b>정답:</b> {parts["정답"]}</div>', unsafe_allow_html=True)
+                    if "해설" in parts:
+                        st.markdown("💡 **해설:**")
+                        st.markdown(parts["해설"].replace("\n", "  \n"))
+                    st.markdown('</div>', unsafe_allow_html=True)
                     st.markdown('<div class="question-box">', unsafe_allow_html=True)
                     num_part = prob[:10].split("】")[0]
                     st.markdown(f"**【문제{num_part}】**")
