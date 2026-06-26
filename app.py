@@ -26,15 +26,15 @@ def create_word_document(history_data, is_multiple=False):
         doc.add_heading(f"생성 정보: {entry['major']} > {entry['mid']} > {entry['minor']}", 0)
         doc.add_paragraph(f"난이도: {entry['difficulty']}")
         for r in entry["results"]:
-            doc.add_heading(f"【{r['type']} 유형】", level=1)
+            doc.add_heading(f"【{r['type']} 유형】", level=2)
             doc.add_paragraph(r['text'])
     else:
         doc.add_heading("전체 생성 문제 통합본", 0)
         for i, h in enumerate(history_data):
-            doc.add_heading(f"[세트 {i+1}] {h['major']} > {h['mid']} > {h['minor']}", level=1)
+            doc.add_heading(f"[세트 {i+1}] {h['major']} > {h['mid']} > {h['minor']}", level=2)
             doc.add_paragraph(f"난이도: {h['difficulty']}")
             for r in h["results"]:
-                doc.add_heading(f"【{r['type']} 유형】", level=2)
+                doc.add_heading(f"【{r['type']} 유형】", level=3)
                 doc.add_paragraph(r['text'])
     bio = io.BytesIO()
     doc.save(bio)
