@@ -560,11 +560,32 @@ with tab1:
                     else:
                         batch_feedback = {}
                     
-                    for i, prob_text in enumerate(problems[1:]):
+for i, prob_text in enumerate(problems[1:]):
                         prob_text = prob_text.strip()
                         if not prob_text: continue
                         full_text = "【문제" + prob_text
                         is_valid, feedback = batch_feedback.get(i+1, (True, "PASS"))
+                        
+                        # 🚀 [추가] 다운로드 파일에도 적용되도록 '데이터 자체'를 영구 정렬
+                        parts = {}
+                        tags = ["발문", "보기/지문", "정답", "해설"]
+                        for tag in tags:
+                            key = f"[{tag}]"
+                            if key in full_text:
+                                start = full_text.index(key) + len(key)
+                                nexts = [f"[{t}]" for t in tags if f"[{t}]" in full_text[start:]]
+                                end = full_text.index(nexts[0], start) if nexts else len(full_text)
+                                parts[tag] = full_text[start:end].replace("---", "").strip()
+                        
+                        if "보기/지문" in parts and "정답" in parts and "해설" in parts:
+                            new_passage, new_ans, new_exp = sort_options(parts["보기/지문"], parts["정답"], parts["해설"])
+                            
+                            # 문제 번호만 안전하게 추출
+                            num_match = re.search(r'^(.*?)\n', prob_text)
+                            num_str = num_match.group(1).replace('】', '').strip() if num_match else f"{i+1}"
+                            
+                            # 정렬이 완료된 내용으로 full_text 원본을 완전히 갈아끼움
+                            full_text = f"【문제 {num_str}】\n[발문]\n{parts.get('발문', '')}\n\n[보기/지문]\n{new_passage}\n\n[정답]\n{new_ans}\n\n[해설]\n{new_exp}\n"
                         
                         batch_results.append({
                             "type": qtype, 
@@ -651,9 +672,6 @@ with tab1:
                             
 # 파이썬으로 선지 길이 정렬 및 정답 교체 적용
                     if "보기/지문" in parts and "정답" in parts and "해설" in parts:
-                        new_passage, new_ans, new_exp = sort_options(
-                            parts["보기/지문"], parts["정답"], parts["해설"]
-                        )
                         parts["보기/지문"] = new_passage
                         parts["정답"] = new_ans
                         parts["해설"] = new_exp
