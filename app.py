@@ -670,11 +670,7 @@ with tab1:
                             end = full.index(nexts[0], start) if nexts else len(full)
                             parts[tag] = full[start:end].replace("---", "").strip()
                             
-# 파이썬으로 선지 길이 정렬 및 정답 교체 적용
-                    if "보기/지문" in parts and "정답" in parts and "해설" in parts:
-                        parts["보기/지문"] = new_passage
-                        parts["정답"] = new_ans
-                        parts["해설"] = new_exp
+
 
                     st.markdown('<div class="question-box">', unsafe_allow_html=True)
                     num_part = prob[:10].split("】")[0]
