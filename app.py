@@ -12,11 +12,11 @@ from validator import validate_question_llm, validate_batch_llm  # <--- 이 줄�
 from prompts import build_generation_prompt
 from datetime import datetime
 
-# ── 🚀 [추가] 난이도 세부 조합 (A, B, C, D) 81가지 경우의 수 사전 계산 ──
-ALL_COMBS = [(a, b, c, d) for a in (0, 1, 2) for b in (0, 1, 2) for c in (0, 1, 2) for d in (0, 1, 2)]
-EASY_COMBS = [c for c in ALL_COMBS if sum(c) <= 2]       # 하: 0~2점 (15가지)
-MID_COMBS = [c for c in ALL_COMBS if 3 <= sum(c) <= 5]   # 중: 3~5점 (45가지)
-HARD_COMBS = [c for c in ALL_COMBS if sum(c) >= 6]       # 상: 6~8점 (21가지)
+# ── 🚀 [수정] 난이도 세부 조합 (A, B, C) 64가지 경우의 수 사전 계산 ──
+ALL_COMBS = [(a, b, c) for a in (0, 1, 2, 3) for b in (0, 1, 2, 3) for c in (0, 1, 2, 3)]
+EASY_COMBS = [c for c in ALL_COMBS if sum(c) <= 2]       # 하: 0~2점 (10가지)
+MID_COMBS = [c for c in ALL_COMBS if 3 <= sum(c) <= 6]   # 중: 3~6점 (44가지)
+HARD_COMBS = [c for c in ALL_COMBS if sum(c) >= 7]       # 상: 7~9점 (10가지)
 
 # ── 🚀 [추가] 워드 문서(.docx) 생성 헬퍼 함수 ──
 def create_word_document(history_data, is_multiple=False):
@@ -497,13 +497,13 @@ with tab1:
 # 2. 통합개념 로직
                 integration_rule = ""
                 if len(selected_minors) > 1:
-                    integration_rule = f"9. [복합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 복합 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"                # 3. 난이도 상세 조건 문자열 생성 (Lexile/소재 강제 주입 제거)
+                    integration_rule = f"11. [복합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 복합 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"                # 3. 난이도 상세 조건 문자열 생성 (Lexile/소재 강제 주입 제거)
                 q_assignments = ""
                 
                 for i, d_dict in enumerate(type_diffs):
                     lvl = d_dict["level"]
-                    a, b, c, d = d_dict["comb"]
-                    q_assignments += f"【문제 {i+1}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점, D={d}점)\n"
+                    a, b, c = d_dict["comb"]
+                    q_assignments += f"【문제 {i+1}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점)\n"
 
 # ... (3. 난이도 상세 조건 생성까지 동일) ...
 
