@@ -694,51 +694,88 @@ with tab1:
                 st.error("⚠️ 통신 에러가 발생하여 생성이 중단되었습니다.")
                 st.warning(raw)
                 continue 
-
             problems = raw.split("【문제")
-                
+            
+            # 🚀 [수정] 들여쓰기 교정
             if len(problems) <= 1:
-                    st.warning("⚠️ 양식이 깨졌거나 렌더링 오류가 발생했습니다. 원본을 확인하세요.")
-                    st.markdown(raw.replace("\n", "  \n"))
+                st.warning("⚠️ 양식이 깨졌거나 렌더링 오류가 발생했습니다. 원본을 확인하세요.")
+                st.markdown(raw.replace("\n", "  \n"))
+                continue
+
+            valid_problem_found = False
+            for prob in problems:
+                prob = prob.strip()
+                if not prob or not prob[0].isdigit():
                     continue
-
-                valid_problem_found = False
-                for prob in problems:
-                    prob = prob.strip()
-                    if not prob or not prob[0].isdigit():
-                        continue
-                    
-                    valid_problem_found = True
-                    full = "【문제" + prob
-                    parts = {}
-                    tags = ["발문", "보기/지문", "정답", "해설"]
-                    for tag in tags:
-                        key = f"[{tag}]"
-                        if key in full:
-                            start = full.index(key) + len(key)
-                            nexts = [f"[{t}]" for t in tags if f"[{t}]" in full[start:]]
-                            end = full.index(nexts[0], start) if nexts else len(full)
-                            parts[tag] = full[start:end].replace("---", "").strip()
-                            
-
-
-
-                    st.markdown('<div class="question-box">', unsafe_allow_html=True)
-                    num_part = prob[:10].split("】")[0]
-                    st.markdown(f"**【문제{num_part}】**")
-                    if "발문" in parts:
-                        st.markdown(f"**{parts['발문']}**", unsafe_allow_html=True)
-                    if "보기/지문" in parts:
-                        st.markdown(parts["보기/지문"], unsafe_allow_html=True)
-                    if "정답" in parts:
-                        st.markdown(f'<div class="answer-box">✅ <b>정답:</b> {parts["정답"]}</div>', unsafe_allow_html=True)
-                    if "해설" in parts:
-                        st.markdown("💡 **해설:**")
-                        st.markdown(parts["해설"].replace("\n", "  \n"))
-                    st.markdown('</div>', unsafe_allow_html=True)
                 
-                if not valid_problem_found:
-                    st.markdown(raw.replace("\n", "  \n"))
+                valid_problem_found = True
+                full = "【문제" + prob
+                parts = {}
+                tags = ["발문", "보기/지문", "정답", "해설"]
+                for tag in tags:
+                    key = f"[{tag}]"
+                    if key in full:
+                        start = full.index(key) + len(key)
+                        nexts = [f"[{t}]" for t in tags if f"[{t}]" in full[start:]]
+                        end = full.index(nexts[0], start) if nexts else len(full)
+                        parts[tag] = full[start:end].replace("---", "").strip()
+
+                st.markdown('<div class="question-box">', unsafe_allow_html=True)
+                num_part = prob[:10].split("】")[0]
+                st.markdown(f"**【문제{num_part}】**")
+                if "발문" in parts:
+                    st.markdown(f"**{parts['발문']}**", unsafe_allow_html=True)
+                if "보기/지문" in parts:
+                    st.markdown(parts["보기/지문"], unsafe_allow_html=True)
+                if "정답" in parts:
+                    st.markdown(f'<div class="answer-box">✅ <b>정답:</b> {parts["정답"]}</div>', unsafe_allow_html=True)
+                if "해설" in parts:
+                    st.markdown("💡 **해설:**")
+                    st.markdown(parts["해설"].replace("\n", "  \n"))
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            if not valid_problem_found:
+                st.markdown(raw.replace("\n", "  \n"))
+
+        # ── 루프 끝 ──
+        
+        st.markdown("---")
+        
+        # 🚀 [수정] 텍스트(.txt) 파일도 유형별로 한 번만 제목이 나오게끔 그룹화 로직 복구
+        set_text = f"[{entry['major']} > {entry['mid']} > {entry['minor']}] {entry.get('difficulty', '')}\n"
+        prev_txt_type = None
+        for r in entry["results"]:
+            if r['type'] != prev_txt_type:
+                set_text += f"\n\n=================================\n🟦 【{r['type']}】 유형\n=================================\n\n"
+                prev_txt_type = r['type']
+            set_text += f"{r.get('text', '')}\n\n"
+
+        # 날짜, 모델명 파싱 및 파일명 조합
+        now_str = datetime.now().strftime("%y%m%d")
+        safe_model = selected_model.split('/')[-1] 
+        f_name = f"{entry['major']}_{entry['mid']}_{now_str}_{safe_model}"
+    
+        dl_col1, dl_col2 = st.columns(2)
+        unique_key = len(st.session_state.history)  # 중복 방지를 위한 고유 번호
+        
+        with dl_col1:
+            st.download_button(
+                "⬇️ 방금 만든 문제 다운로드 (.txt)",
+                data=set_text.encode("utf-8"),
+                file_name=f"{f_name}.txt",
+                mime="text/plain",
+                use_container_width=True,
+                key=f"dl_current_txt_{unique_key}"  # 중복 에러 완벽 차단
+            )
+        with dl_col2:
+            st.download_button(
+                "📄 방금 만든 문제 다운로드 (.docx)",
+                data=create_word_document(entry, is_multiple=False),
+                file_name=f"{f_name}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+                key=f"dl_current_docx_{unique_key}" # 중복 에러 완벽 차단
+            )
                     
 
 # ── 루프 끝 ──
