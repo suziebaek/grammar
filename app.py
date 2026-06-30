@@ -25,17 +25,22 @@ def create_word_document(history_data, is_multiple=False):
         entry = history_data
         doc.add_heading(f"생성 정보: {entry['major']} > {entry['mid']} > {entry['minor']}", 0)
         doc.add_paragraph(f"난이도: {entry['difficulty']}")
+        
+        # 🚀 [수정] 결과(results) 안에 있는 'type(유형)'별로 명확히 묶어줍니다.
         for r in entry["results"]:
-            doc.add_heading(f"【{r['type']} 유형】", level=2)
+            doc.add_heading(f"🟦 {r['type']} 유형", level=1) # 큰 제목으로 묶음
             doc.add_paragraph(r['text'])
     else:
         doc.add_heading("전체 생성 문제 통합본", 0)
         for i, h in enumerate(history_data):
-            doc.add_heading(f"[세트 {i+1}] {h['major']} > {h['mid']} > {h['minor']}", level=2)
+            doc.add_heading(f"[세트 {i+1}] {h['major']} > {h['mid']} > {h['minor']}", level=1)
             doc.add_paragraph(f"난이도: {h['difficulty']}")
+            
+            # 🚀 [수정] 통합본에서도 유형별 묶음을 명확히 표시
             for r in h["results"]:
-                doc.add_heading(f"【{r['type']} 유형】", level=3)
+                doc.add_heading(f"🟦 {r['type']} 유형", level=2) 
                 doc.add_paragraph(r['text'])
+    
     bio = io.BytesIO()
     doc.save(bio)
     return bio.getvalue()
