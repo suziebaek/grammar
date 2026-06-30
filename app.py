@@ -687,7 +687,7 @@ with tab1:
             else:
                     st.success("✅ **검증 통과**")
 
-                raw = str(res.get("text", ""))
+            raw = str(res.get("text", ""))
                 
                 # 통신 에러 UI
                 if raw.startswith("[통신오류]"):
