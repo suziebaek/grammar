@@ -20,6 +20,7 @@ TOPIC_LIST = [
     "윤리", "언어학", "로봇", "환경", "지리", "종교", "소셜 미디어", "요리"
     
 ]
+
 # ── 🚀 [수정] 난이도 세부 조합 (A, B, C) 64가지 경우의 수 사전 계산 ──
 ALL_COMBS = [(a, b, c) for a in (0, 1, 2, 3) for b in (0, 1, 2, 3) for c in (0, 1, 2, 3)]
 EASY_COMBS = [c for c in ALL_COMBS if sum(c) <= 2]       # 하: 0~2점 (10가지)
@@ -497,6 +498,12 @@ with tab1:
                 allocations[selected_types[i % len(selected_types)]].append(diff_dict)
 
 # 🚀 루프: 선택한 문제 유형별로 순회
+
+            # (수정) 루프 진입 전, 전체 쓸 소재를 미리 섞어둠
+            random.shuffle(TOPIC_LIST)
+            topic_index = 0
+
+            # 🚀 루프: 선택한 문제 유형별로 순회
             for idx, qtype in enumerate(selected_types):
                 type_diffs = allocations[qtype]
                 if not type_diffs: continue 
@@ -516,14 +523,13 @@ with tab1:
                 if len(selected_minors) > 1:
                     integration_rule = f"10. [복합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 복합 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
 # 3. 난이도 상세 조건 문자열 생성 (소재 강제 주입)
-                safe_sample_count = min(num_for_this_type, len(TOPIC_LIST))
-                chosen_topics = random.sample(TOPIC_LIST, safe_sample_count)
-
                 q_assignments = ""
                 for i, d_dict in enumerate(type_diffs):
                     lvl = d_dict["level"]
                     a, b, c = d_dict["comb"]
-                    topic = chosen_topics[i % len(chosen_topics)]
+# 섞어둔 리스트에서 하나씩 빼서 씀 (12개 넘어가면 다시 처음부터)
+                    topic = TOPIC_LIST[topic_index % len(TOPIC_LIST)]
+                    topic_index += 1                    
                     q_assignments += f"【문제 {i+1}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점) | 강제 지문 소재: [{topic}]\n"
 
                 # 4. 분리된 파일에서 프롬프트 불러오기
