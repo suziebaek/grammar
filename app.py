@@ -727,9 +727,9 @@ with tab1:
                     num_part = prob[:10].split("】")[0]
                     st.markdown(f"**【문제{num_part}】**")
                     if "발문" in parts:
-                        st.markdown(f"**{parts['발문']}**")
+                        st.markdown(f"**{parts['발문']}**", unsafe_allow_html=True)
                     if "보기/지문" in parts:
-                        st.markdown(parts["보기/지문"])
+                        st.markdown(parts["보기/지문"], unsafe_allow_html=True)
                     if "정답" in parts:
                         st.markdown(f'<div class="answer-box">✅ <b>정답:</b> {parts["정답"]}</div>', unsafe_allow_html=True)
                     if "해설" in parts:
