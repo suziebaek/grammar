@@ -535,7 +535,7 @@ with tab1:
 # 2. 통합개념 로직
                 integration_rule = ""
                 if len(selected_minors) > 1:
-                    integration_rule = f"11. [복합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 복합 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
+                    integration_rule = f"12. [복합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 복합 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
 # 3. 난이도 상세 조건 문자열 생성 (소재 강제 주입)
                 q_assignments = ""
                 for i, d_dict in enumerate(type_diffs):
