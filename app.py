@@ -696,7 +696,8 @@ with tab1:
                 continue 
 
             problems = raw.split("【문제")
-                if len(problems) <= 1:
+                
+            if len(problems) <= 1:
                     st.warning("⚠️ 양식이 깨졌거나 렌더링 오류가 발생했습니다. 원본을 확인하세요.")
                     st.markdown(raw.replace("\n", "  \n"))
                     continue
