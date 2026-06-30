@@ -26,8 +26,20 @@ ALL_COMBS = [(a, b, c) for a in (0, 1, 2, 3) for b in (0, 1, 2, 3) for c in (0, 
 EASY_COMBS = [c for c in ALL_COMBS if sum(c) <= 2]       # 하: 0~2점 (10가지)
 MID_COMBS = [c for c in ALL_COMBS if 3 <= sum(c) <= 6]   # 중: 3~6점 (44가지)
 HARD_COMBS = [c for c in ALL_COMBS if sum(c) >= 7]       # 상: 7~9점 (10가지)
+# 🚀 [추가] <u> 태그 인식해서 워드에 밑줄 긋는 헬퍼 함수
 
-# ── 🚀 [추가] 워드 문서(.docx) 생성 헬퍼 함수 ──
+def add_paragraph_with_tags(doc_or_element, text):
+    p = doc_or_element.add_paragraph()
+    # <u>태그 단위로 텍스트 쪼개기
+    parts = re.split(r'(<u>.*?</u>)', text)
+    for part in parts:
+        if part.startswith('<u>') and part.endswith('</u>'):
+            run = p.add_run(part[3:-4]) # <u> </u> 떼어내고 알맹이만
+            run.underline = True        # 워드 밑줄 속성 ON
+        else:
+            p.add_run(part)
+            
+# 🚀 [수정] 기존 create_word_document 함수 통째로 교체
 def create_word_document(history_data, is_multiple=False):
     doc = Document()
     if not is_multiple:
@@ -40,7 +52,8 @@ def create_word_document(history_data, is_multiple=False):
             if r['type'] != prev_type:
                 doc.add_heading(f"🟦 {r['type']} 유형", level=1)
                 prev_type = r['type']
-            doc.add_paragraph(r['text'])
+            # 기존 doc.add_paragraph 대신 새로 만든 함수 사용
+            add_paragraph_with_tags(doc, r['text'])
     else:
         doc.add_heading("전체 생성 문제 통합본", 0)
         for i, h in enumerate(history_data):
@@ -52,7 +65,8 @@ def create_word_document(history_data, is_multiple=False):
                 if r['type'] != prev_type:
                     doc.add_heading(f"🟦 {r['type']} 유형", level=2) 
                     prev_type = r['type']
-                doc.add_paragraph(r['text'])
+                # 기존 doc.add_paragraph 대신 새로 만든 함수 사용
+                add_paragraph_with_tags(doc, r['text'])
                 
     bio = io.BytesIO()
     doc.save(bio)
@@ -521,7 +535,7 @@ with tab1:
 # 2. 통합개념 로직
                 integration_rule = ""
                 if len(selected_minors) > 1:
-                    integration_rule = f"10. [복합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 복합 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
+                    integration_rule = f"11. [복합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 복합 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
 # 3. 난이도 상세 조건 문자열 생성 (소재 강제 주입)
                 q_assignments = ""
                 for i, d_dict in enumerate(type_diffs):
@@ -532,11 +546,6 @@ with tab1:
                     topic_index += 1                    
                     q_assignments += f"【문제 {i+1}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점) | 강제 지문 소재: [{topic}]\n"
 
-                # 4. 분리된 파일에서 프롬프트 불러오기
-                prompt = build_generation_prompt(
-                    ref_text=ref_text,
-                    selected_major=selected_major,
-                    # ... (이하 기존과 동일)
                 # 4. 분리된 파일에서 프롬프트 불러오기
                 prompt = build_generation_prompt(
                     ref_text=ref_text,
