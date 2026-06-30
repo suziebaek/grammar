@@ -12,6 +12,13 @@ from validator import validate_question_llm, validate_batch_llm  # <--- 이 줄�
 from prompts import build_generation_prompt
 from datetime import datetime
 
+TOPIC_LIST = [
+    "고대 역사", "우주 탐사", "심해 생물", "인공지능", 
+    "르네상스 미술", "스포츠 과학", "농업", "음악사", 
+    "경제학", "기후 변화", "건축 공학", "야생 동물 보호",
+    "지구 온난화", "일상 생활", "심리학", "학교 생활", "문학",
+    "윤리", "언어학", "로봇", "환경", "지리", "종교", "소셜 미디어"
+]
 # ── 🚀 [수정] 난이도 세부 조합 (A, B, C) 64가지 경우의 수 사전 계산 ──
 ALL_COMBS = [(a, b, c) for a in (0, 1, 2, 3) for b in (0, 1, 2, 3) for c in (0, 1, 2, 3)]
 EASY_COMBS = [c for c in ALL_COMBS if sum(c) <= 2]       # 하: 0~2점 (10가지)
@@ -506,16 +513,23 @@ with tab1:
 # 2. 통합개념 로직
                 integration_rule = ""
                 if len(selected_minors) > 1:
-                    integration_rule = f"10. [복합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 복합 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"                # 3. 난이도 상세 조건 문자열 생성 (Lexile/소재 강제 주입 제거)
+                    integration_rule = f"10. [복합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 복합 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
+# 3. 난이도 상세 조건 문자열 생성 (소재 강제 주입)
+                safe_sample_count = min(num_for_this_type, len(TOPIC_LIST))
+                chosen_topics = random.sample(TOPIC_LIST, safe_sample_count)
+
                 q_assignments = ""
-                
                 for i, d_dict in enumerate(type_diffs):
                     lvl = d_dict["level"]
                     a, b, c = d_dict["comb"]
-                    q_assignments += f"【문제 {i+1}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점)\n"
+                    topic = chosen_topics[i % len(chosen_topics)]
+                    q_assignments += f"【문제 {i+1}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점) | 강제 지문 소재: [{topic}]\n"
 
-# ... (3. 난이도 상세 조건 생성까지 동일) ...
-
+                # 4. 분리된 파일에서 프롬프트 불러오기
+                prompt = build_generation_prompt(
+                    ref_text=ref_text,
+                    selected_major=selected_major,
+                    # ... (이하 기존과 동일)
                 # 4. 분리된 파일에서 프롬프트 불러오기
                 prompt = build_generation_prompt(
                     ref_text=ref_text,
