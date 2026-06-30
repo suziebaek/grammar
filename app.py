@@ -737,46 +737,7 @@ with tab1:
             if not valid_problem_found:
                 st.markdown(raw.replace("\n", "  \n"))
 
-        # ── 루프 끝 ──
-        
-        st.markdown("---")
-        
-        # 🚀 [수정] 텍스트(.txt) 파일도 유형별로 한 번만 제목이 나오게끔 그룹화 로직 복구
-        set_text = f"[{entry['major']} > {entry['mid']} > {entry['minor']}] {entry.get('difficulty', '')}\n"
-        prev_txt_type = None
-        for r in entry["results"]:
-            if r['type'] != prev_txt_type:
-                set_text += f"\n\n=================================\n🟦 【{r['type']}】 유형\n=================================\n\n"
-                prev_txt_type = r['type']
-            set_text += f"{r.get('text', '')}\n\n"
 
-        # 날짜, 모델명 파싱 및 파일명 조합
-        now_str = datetime.now().strftime("%y%m%d")
-        safe_model = selected_model.split('/')[-1] 
-        f_name = f"{entry['major']}_{entry['mid']}_{now_str}_{safe_model}"
-    
-        dl_col1, dl_col2 = st.columns(2)
-        unique_key = len(st.session_state.history)  # 중복 방지를 위한 고유 번호
-        
-        with dl_col1:
-            st.download_button(
-                "⬇️ 방금 만든 문제 다운로드 (.txt)",
-                data=set_text.encode("utf-8"),
-                file_name=f"{f_name}.txt",
-                mime="text/plain",
-                use_container_width=True,
-                key=f"dl_current_txt_{unique_key}"  # 중복 에러 완벽 차단
-            )
-        with dl_col2:
-            st.download_button(
-                "📄 방금 만든 문제 다운로드 (.docx)",
-                data=create_word_document(entry, is_multiple=False),
-                file_name=f"{f_name}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                use_container_width=True,
-                key=f"dl_current_docx_{unique_key}" # 중복 에러 완벽 차단
-            )
-                    
 
 # ── 루프 끝 ──
         
