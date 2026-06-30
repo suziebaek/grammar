@@ -1,22 +1,6 @@
 # prompts.py
 def build_generation_prompt(ref_text, selected_major, selected_mid, selected_minor_label, point_text, qtype, num_for_this_type, extra, q_assignments, integration_rule):
     return f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
-
-=== [역할 A] 기출문제 벤치마킹 ===
-아래 기출문제를 통해 발문 형식, 선지 구성 방식, 보기 스타일을 완벽하게 모방하세요.
-{ref_text}
-
-=== [역할 B] 출제 타겟 개념 ===
-- 대분류: {selected_major}
-- 중분류: {selected_mid}
-- 소분류: {selected_minor_label}
-- 핵심 출제 포인트: {point_text}
-
-=== 출제 조건 ===
-- 문제 유형: {qtype}
-- 총 생성 개수: {num_for_this_type}개
-- 추가 요청: {extra if extra else '없음'}
-
 === ★ [역할 C] 난이도 평가 척도 및 배정표 (필수 적용) ★ ===
 당신은 할당된 타겟 난이도에 맞추기 위해 아래 3가지 항목(A, B, C)의 점수를 합산하여 문항을 설계해야 합니다. (총점 0~9점)
 각 항목의 [AI 판별 신호(명시적 규칙)]을 반드시 적용하여 지정된 점수 기준에 맞게 문제를 출제하세요.
@@ -90,5 +74,21 @@ C. 오답 변별력
 [정답 해설]: 정답인 이유를 문법적으로 명확히 설명.
 [난이도 산출 내역]: (예시: A=2점(기본 규칙 1개 + 예외 규칙 1개) + B=1점(인접 문장에 단서 존재) + C	=3점(기본 규칙을 잘못 적용한 매력적 오답 포함) = 총 6점)
 [플래그 내역]: (예시: [등급 경계값] 총점 6점 / [신뢰도 경고] C=3 (정답이 예외 규칙 적용 결과))
+=== [역할 A] 기출문제 벤치마킹 ===
+아래 기출문제를 통해 발문 형식, 선지 구성 방식, 보기 스타일을 완벽하게 모방하세요.
+{ref_text}
+
+=== [역할 B] 출제 타겟 개념 ===
+- 대분류: {selected_major}
+- 중분류: {selected_mid}
+- 소분류: {selected_minor_label}
+- 핵심 출제 포인트: {point_text}
+
+=== 출제 조건 ===
+- 문제 유형: {qtype}
+- 총 생성 개수: {num_for_this_type}개
+- 추가 요청: {extra if extra else '없음'}
+
+
 ---
 """
