@@ -684,7 +684,7 @@ with tab1:
             
             if not res.get("is_valid", True):
                     st.error(f"⚠️ **검증 실패 사유:** {res.get('feedback')}")
-                else:
+            else:
                     st.success("✅ **검증 통과**")
 
                 raw = str(res.get("text", ""))
