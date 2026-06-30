@@ -683,20 +683,19 @@ with tab1:
                 prev_type = res['type']
             
             if not res.get("is_valid", True):
-                    st.error(f"⚠️ **검증 실패 사유:** {res.get('feedback')}")
+                st.error(f"⚠️ **검증 실패 사유:** {res.get('feedback')}")
             else:
-                    st.success("✅ **검증 통과**")
+                st.success("✅ **검증 통과**")
 
             raw = str(res.get("text", ""))
-                
-                # 통신 에러 UI
-                if raw.startswith("[통신오류]"):
-                    st.error("⚠️ 통신 에러가 발생하여 생성이 중단되었습니다.")
-                    st.warning(raw)
-                    continue 
+            
+            # 통신 에러 UI
+            if raw.startswith("[통신오류]"):
+                st.error("⚠️ 통신 에러가 발생하여 생성이 중단되었습니다.")
+                st.warning(raw)
+                continue 
 
-                problems = raw.split("【문제")
-                
+            problems = raw.split("【문제")
                 if len(problems) <= 1:
                     st.warning("⚠️ 양식이 깨졌거나 렌더링 오류가 발생했습니다. 원본을 확인하세요.")
                     st.markdown(raw.replace("\n", "  \n"))
