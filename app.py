@@ -641,11 +641,14 @@ with tab1:
         st.markdown("---")
         st.markdown(f"### 📄 생성 결과 — {entry['major']} > {entry['mid']} > {entry['minor']} ({entry.get('difficulty', '')})")
 
+        prev_type = None # 이전 유형 추적용 변수 추가
         for res in entry["results"]:
-            with st.expander(f"📌 [{res['type']}] 유형 문제", expanded=True):
-                
-                # [추가] 검증기 결과 뱃지
-                if not res.get("is_valid", True):
+            # 🚀 이전 문항과 유형이 다를 때만 대제목 출력
+            if res['type'] != prev_type:
+                st.markdown(f"### 🟦 【{res['type']}】 유형")
+                prev_type = res['type']
+            
+            if not res.get("is_valid", True):
                     st.error(f"⚠️ **검증 실패 사유:** {res.get('feedback')}")
                 else:
                     st.success("✅ **검증 통과**")
