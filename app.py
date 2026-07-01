@@ -661,7 +661,7 @@ with tab1:
                     # [수정] 5. 생성 및 배치 검증 내부의 Gemini 분기
                     # ─────────────────────────────────────────────────────────
                     # 🟦 분기 2: Gemini 모델이 선택된 경우 (글로벌 캐싱 활용)
-                    elif is_google_native or "gemini" in selected_model.lower():
+                elif is_google_native or "gemini" in selected_model.lower():
                         # 여기서도 환경을 현재 유저의 키로 세팅해줍니다.
                         genai.configure(api_key=safe_api_key)
                         
