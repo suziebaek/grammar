@@ -601,8 +601,14 @@ with tab1:
                     topic_index += 1                    
                     q_assignments += f"【문제 {i+1}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점) | 강제 지문 소재: [{topic}]\n"
 
-                # 4. 분리된 파일에서 프롬프트 불러오기
-                prompt = build_generation_prompt(
+# ─────────────────────────────────────────────────────────
+                # 4. 프롬프트 불러오기 (🚨 1개였던 프롬프트를 2개로 쪼개야 합니다!)
+                # ─────────────────────────────────────────────────────────
+                # [숙제]: build_generation_prompt 함수를 수정해서, 
+                # 고정된 규칙(system)과 변동되는 조건(user)을 따로 반환하도록 만들어야 합니다.
+                
+                # 임시 예시 (선생님이 prompts.py를 수정하신 후 이렇게 받으셔야 합니다)
+                system_prompt, user_prompt = build_generation_prompt(
                     ref_text=ref_text,
                     selected_major=selected_major,
                     selected_mid=selected_mid,
@@ -615,24 +621,50 @@ with tab1:
                     integration_rule=integration_rule
                 )
 
-                # 5. 생성 및 배치 검증
+# ─────────────────────────────────────────────────────────
+                # 5. 생성 및 배치 검증 (캐싱 분기 적용)
+                # ─────────────────────────────────────────────────────────
                 try:
-                    if is_google_native:
-                        # 🚀 [추가] Gemini 3.1 Pro Thinking Level을 'medium'으로 설정
-                        model = genai.GenerativeModel(
-                            "gemini-3.1-pro-preview",
+                    # 🟦 분기 1: Claude 모델이 선택된 경우 (Anthropic 라이브러리 직접 호출)
+                    if "claude" in selected_model.lower():
+                        import anthropic
+                        anthropic_client = anthropic.Anthropic(api_key=safe_api_key)
+                        response = anthropic_client.messages.create(
+                            model=selected_model,
+                            max_tokens=4000,
+                            system=[{
+                                "type": "text",
+                                "text": system_prompt,
+                                "cache_control": {"type": "ephemeral"} # 🚀 클로드 캐싱 핵심
+                            }],
+                            messages=[{"role": "user", "content": user_prompt}]
+                        )
+                        result_text = response.content[0].text
+
+                    # 🟦 분기 2: Gemini 모델이 선택된 경우 (글로벌 캐싱 활용)
+                    elif is_google_native or "gemini" in selected_model.lower():
+                        # 파일 맨 위에 만들어둔 get_or_create_gemini_cache 함수 호출
+                        cache_name = get_or_create_gemini_cache(system_prompt)
+                        active_cache = caching.CachedContent.get(cache_name)
+                        
+                        model = genai.GenerativeModel.from_cached_content(
+                            cached_content=active_cache,
                             generation_config=genai.types.GenerationConfig(
-                                thinking_config=genai.types.ThinkingConfig(
-                                    thinking_level="high"
-                                )
+                                thinking_config=genai.types.ThinkingConfig(thinking_level="high") # 🚀 씽킹 모드 유지
                             )
                         )
-                        response = model.generate_content(prompt)
+                        response = model.generate_content(user_prompt)
                         result_text = response.text
+
+                    # 🟦 분기 3: OpenAI, OpenRouter, Azure 등 (기존 로직 완벽 유지)
                     else:
+                        # 이 경우엔 system과 user 프롬프트를 다시 합쳐서 보내거나, role을 나눠서 보냄
                         response = client.chat.completions.create(
                             model=selected_model,
-                            messages=[{"role": "user", "content": prompt}],
+                            messages=[
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt}
+                            ],
                             temperature=0.75,
                             max_tokens=7000
                         )
