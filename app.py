@@ -2,16 +2,71 @@ import streamlit as st
 import random
 from pathlib import Path
 import google.generativeai as genai
+from google.generativeai import caching
 from openai import OpenAI, AzureOpenAI
 import pandas as pd
 import re
 import time
 import io
+import anthropic
 from docx import Document # 🚀 [추가] 워드 다운로드를 위한 라이브러리 (pip install python-docx 필요)
 from validator import validate_question_llm, validate_batch_llm  # <--- 이 줄이 반드시 있어야 합니다!
 from prompts import build_generation_prompt
 from datetime import datetime
 
+# ─────────────────────────────────────────────────────────
+# 1. 글로벌 캐시 함수 (맨 위에 배치)
+# ─────────────────────────────────────────────────────────
+@st.cache_resource
+def get_or_create_gemini_cache(system_prompt):
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    cache = caching.CachedContent.create(
+        model='models/gemini-3.1-pro-preview', # 사용할 정확한 모델명
+        display_name='global_grammar_cache',
+        system_instruction=system_prompt,
+        ttl=datetime.timedelta(minutes=60),
+    )
+    return cache.name
+
+# ─────────────────────────────────────────────────────────
+# 2. 캐싱 통신 함수 (맨 위에 배치)
+# ─────────────────────────────────────────────────────────
+def call_llm_with_caching(selected_model, system_prompt, user_prompt):
+    # 🟦 Claude 캐싱 통신
+    if "claude" in selected_model.lower():
+        client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
+        response = client.messages.create(
+            model=selected_model,
+            max_tokens=4000,
+            system=[{
+                "type": "text",
+                "text": system_prompt,
+                "cache_control": {"type": "ephemeral"}
+            }],
+            messages=[{"role": "user", "content": user_prompt}]
+        )
+        return response.content[0].text
+        
+    # 🟦 Gemini 캐싱 통신 (Thinking 모드 적용)
+    elif "gemini" in selected_model.lower():
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        cache_name = get_or_create_gemini_cache(system_prompt)
+        active_cache = caching.CachedContent.get(cache_name)
+        model = genai.GenerativeModel.from_cached_content(
+            cached_content=active_cache,
+            # 🚀 기존에 쓰시던 고지능(Thinking) 옵션 유지!
+            generation_config=genai.types.GenerationConfig(
+                thinking_config=genai.types.ThinkingConfig(thinking_level="high")
+            )
+        )
+        response = model.generate_content(user_prompt)
+        return response.text
+    
+    # 🟦 기타 모델 (GPT 등)
+    else:
+        # GPT 계열 처리 (필요시 기존 코드 삽입)
+        pass
+        
 TOPIC_LIST = [
     "고대 역사", "우주 탐사", "심해 생물", "인공지능", 
     "미술수업", "스포츠 과학", "농업", "음악사", 
