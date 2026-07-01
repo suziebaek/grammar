@@ -621,51 +621,39 @@ with tab1:
                     integration_rule=integration_rule
                 )
 
-# ─────────────────────────────────────────────────────────
-                    # 5. 생성 및 배치 검증 (캐싱 분기 적용)
-                    # ─────────────────────────────────────────────────────────
+# 5. 생성 및 배치 검증
                 try:
-                        # 🟦 분기 1: Claude 모델이 선택된 경우
-                        if "claude" in selected_model.lower():
-                            
-                            # 🚀 [추가/수정] 만약 OpenRouter 키를 쓰고 있다면?
-                            if safe_api_key.startswith("sk-or-"):
-                                # Anthropic 라이브러리가 아닌 기존 OpenAI 호환 클라이언트(client)를 그대로 사용
-                                response = client.chat.completions.create(
-                                    model=selected_model,
-                                    messages=[
-                                        {"role": "system", "content": system_prompt},
-                                        {"role": "user", "content": user_prompt}
-                                    ],
-                                    temperature=0.75,
-                                    max_tokens=7000
-                                )
-                                result_text = response.choices[0].message.content
-                                
-                            # 순수 Anthropic 키(sk-ant-...)를 쓰고 있다면?
-                            else:
-                                import anthropic
-                                anthropic_client = anthropic.Anthropic(api_key=safe_api_key)
-                                response = anthropic_client.messages.create(
-                                    model=selected_model,
-                                    max_tokens=4000,
-                                    system=[{
-                                        "type": "text",
-                                        "text": system_prompt,
-                                        "cache_control": {"type": "ephemeral"} # 공식 캐싱
-                                    }],
-                                    messages=[{"role": "user", "content": user_prompt}]
-                                )
-                                result_text = response.content[0].text
-# ─────────────────────────────────────────────────────────
-                    # [수정] 5. 생성 및 배치 검증 내부의 Gemini 분기
-                    # ─────────────────────────────────────────────────────────
-                    # 🟦 분기 2: Gemini 모델이 선택된 경우 (글로벌 캐싱 활용)
-                elif is_google_native or "gemini" in selected_model.lower():
-                        # 여기서도 환경을 현재 유저의 키로 세팅해줍니다.
+                    # 🟦 분기 1: Claude 모델이 선택된 경우
+                    if "claude" in selected_model.lower():
+                        if safe_api_key.startswith("sk-or-"):
+                            response = client.chat.completions.create(
+                                model=selected_model,
+                                messages=[
+                                    {"role": "system", "content": system_prompt},
+                                    {"role": "user", "content": user_prompt}
+                                ],
+                                temperature=0.75,
+                                max_tokens=7000
+                            )
+                            result_text = response.choices[0].message.content
+                        else:
+                            import anthropic
+                            anthropic_client = anthropic.Anthropic(api_key=safe_api_key)
+                            response = anthropic_client.messages.create(
+                                model=selected_model,
+                                max_tokens=4000,
+                                system=[{
+                                    "type": "text",
+                                    "text": system_prompt,
+                                    "cache_control": {"type": "ephemeral"}
+                                }],
+                                messages=[{"role": "user", "content": user_prompt}]
+                            )
+                            result_text = response.content[0].text
+
+                    # 🟦 분기 2: Gemini 모델이 선택된 경우
+                    elif is_google_native or "gemini" in selected_model.lower():
                         genai.configure(api_key=safe_api_key)
-                        
-                        # 함수 호출 시 safe_api_key를 같이 넘겨줍니다!
                         cache_name = get_or_create_gemini_cache(system_prompt, safe_api_key)
                         active_cache = caching.CachedContent.get(cache_name)
                         
@@ -678,9 +666,8 @@ with tab1:
                         response = model.generate_content(user_prompt)
                         result_text = response.text
 
-                    # 🟦 분기 3: OpenAI, OpenRouter, Azure 등 (기존 로직 완벽 유지)
+                    # 🟦 분기 3: 기타 모델 (OpenAI 등)
                     else:
-                        # 이 경우엔 system과 user 프롬프트를 다시 합쳐서 보내거나, role을 나눠서 보냄
                         response = client.chat.completions.create(
                             model=selected_model,
                             messages=[
@@ -692,17 +679,18 @@ with tab1:
                         )
                         result_text = response.choices[0].message.content
 
-                    # ... (이후 결과 쪼개기 및 검증 루프 동일) ...
-# 🚀 [추가] 마크다운 이스케이프 및 HTML 공백 강제 세탁
+                    # 🚀 마크다운 이스케이프 및 빈 값 에러 처리
                     if result_text:
                         result_text = result_text.replace(r"\_", "_").replace("&nbsp;", " ")
-
-                    # 🚀 [핵심 방어 코드] AI 응답이 None(빈 값)으로 올 경우 에러를 강제로 발생시켜 안전하게 예외 처리함
                     if result_text is None:
-                        raise Exception("AI가 텍스트 대신 빈 값을 반환했습니다. (안전 필터 차단 또는 서버 일시 오류)")
+                        raise Exception("AI가 텍스트 대신 빈 값을 반환했습니다.")
 
+                    # --- 결과 파싱 (기존 코드 유지) ---
                     problems = result_text.split("【문제")
                     
+                    # (이후 선생님의 원본 코드인 use_validator 및 for 루프가 이 들여쓰기 라인에 맞춰 이어져야 합니다)
+
+
                     if use_validator:
                         st.write("DEBUG: 검증기 호출 시작...")
                         batch_feedback = validate_batch_llm(
@@ -751,6 +739,7 @@ with tab1:
                         })
 
                 except Exception as e:
+                    # except는 반드시 try와 같은 세로줄에 위치해야 합니다!
                     batch_results.append({
                         "type": qtype, 
                         "text": f"[통신오류] {str(e)}", 
