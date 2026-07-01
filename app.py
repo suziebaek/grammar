@@ -623,36 +623,8 @@ with tab1:
 
 # 5. 생성 및 배치 검증
                 try:
-                    # 🟦 분기 1: Claude 모델이 선택된 경우
-                    if "claude" in selected_model.lower():
-                        if safe_api_key.startswith("sk-or-"):
-                            response = client.chat.completions.create(
-                                model=selected_model,
-                                messages=[
-                                    {"role": "system", "content": system_prompt},
-                                    {"role": "user", "content": user_prompt}
-                                ],
-                                temperature=0.75,
-                                max_tokens=7000
-                            )
-                            result_text = response.choices[0].message.content
-                        else:
-                            import anthropic
-                            anthropic_client = anthropic.Anthropic(api_key=safe_api_key)
-                            response = anthropic_client.messages.create(
-                                model=selected_model,
-                                max_tokens=4000,
-                                system=[{
-                                    "type": "text",
-                                    "text": system_prompt,
-                                    "cache_control": {"type": "ephemeral"}
-                                }],
-                                messages=[{"role": "user", "content": user_prompt}]
-                            )
-                            result_text = response.content[0].text
-
-                    # 🟦 분기 2: Gemini 모델이 선택된 경우
-                    elif is_google_native or "gemini" in selected_model.lower():
+                    # 🟦 분기 1: 순수 구글 키 (AIza...)를 사용한 네이티브 Gemini 통신 (캐싱 O)
+                    if is_google_native:
                         genai.configure(api_key=safe_api_key)
                         cache_name = get_or_create_gemini_cache(system_prompt, safe_api_key)
                         active_cache = caching.CachedContent.get(cache_name)
@@ -666,7 +638,23 @@ with tab1:
                         response = model.generate_content(user_prompt)
                         result_text = response.text
 
-                    # 🟦 분기 3: 기타 모델 (OpenAI 등)
+                    # 🟦 분기 2: 순수 Anthropic 키 (sk-ant...)를 사용한 네이티브 Claude 통신 (캐싱 O)
+                    elif "claude" in selected_model.lower() and not safe_api_key.startswith("sk-or-"):
+                        import anthropic
+                        anthropic_client = anthropic.Anthropic(api_key=safe_api_key)
+                        response = anthropic_client.messages.create(
+                            model=selected_model,
+                            max_tokens=4000,
+                            system=[{
+                                "type": "text",
+                                "text": system_prompt,
+                                "cache_control": {"type": "ephemeral"}
+                            }],
+                            messages=[{"role": "user", "content": user_prompt}]
+                        )
+                        result_text = response.content[0].text
+
+                    # 🟦 분기 3: OpenRouter(sk-or-), 일반 OpenAI, Azure 등 호환 키를 쓴 모든 경우
                     else:
                         response = client.chat.completions.create(
                             model=selected_model,
