@@ -2,71 +2,16 @@ import streamlit as st
 import random
 from pathlib import Path
 import google.generativeai as genai
-from google.generativeai import caching
 from openai import OpenAI, AzureOpenAI
 import pandas as pd
 import re
 import time
 import io
-import anthropic
 from docx import Document # 🚀 [추가] 워드 다운로드를 위한 라이브러리 (pip install python-docx 필요)
 from validator import validate_question_llm, validate_batch_llm  # <--- 이 줄이 반드시 있어야 합니다!
 from prompts import build_generation_prompt
-from datetime import datetime, timedelta
-# ─────────────────────────────────────────────────────────
-# 1. 글로벌 캐시 함수 (맨 위에 배치)
-# ─────────────────────────────────────────────────────────
+from datetime import datetime
 
-@st.cache_resource
-def get_or_create_gemini_cache(system_prompt, api_key):
-    genai.configure(api_key=api_key)  # st.secrets 대신 변수 사용
-    cache = caching.CachedContent.create(
-        model='models/gemini-3.1-pro-preview',
-        display_name='global_grammar_cache',
-        system_instruction=system_prompt,
-        ttl=timedelta(minutes=60),
-    )
-    return cache.name
-
-# ─────────────────────────────────────────────────────────
-# 2. 캐싱 통신 함수 (맨 위에 배치)
-# ─────────────────────────────────────────────────────────
-def call_llm_with_caching(selected_model, system_prompt, user_prompt):
-    # 🟦 Claude 캐싱 통신
-    if "claude" in selected_model.lower():
-        client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-        response = client.messages.create(
-            model=selected_model,
-            max_tokens=4000,
-            system=[{
-                "type": "text",
-                "text": system_prompt,
-                "cache_control": {"type": "ephemeral"}
-            }],
-            messages=[{"role": "user", "content": user_prompt}]
-        )
-        return response.content[0].text
-        
-    # 🟦 Gemini 캐싱 통신 (Thinking 모드 적용)
-    elif "gemini" in selected_model.lower():
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        cache_name = get_or_create_gemini_cache(system_prompt)
-        active_cache = caching.CachedContent.get(cache_name)
-        model = genai.GenerativeModel.from_cached_content(
-            cached_content=active_cache,
-            # 🚀 기존에 쓰시던 고지능(Thinking) 옵션 유지!
-            generation_config=genai.types.GenerationConfig(
-                thinking_config=genai.types.ThinkingConfig(thinking_level="high")
-            )
-        )
-        response = model.generate_content(user_prompt)
-        return response.text
-    
-    # 🟦 기타 모델 (GPT 등)
-    else:
-        # GPT 계열 처리 (필요시 기존 코드 삽입)
-        pass
-        
 TOPIC_LIST = [
     "고대 역사", "우주 탐사", "심해 생물", "인공지능", 
     "미술수업", "스포츠 과학", "농업", "음악사", 
@@ -601,14 +546,8 @@ with tab1:
                     topic_index += 1                    
                     q_assignments += f"【문제 {i+1}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점) | 강제 지문 소재: [{topic}]\n"
 
-# ─────────────────────────────────────────────────────────
-                # 4. 프롬프트 불러오기 (🚨 1개였던 프롬프트를 2개로 쪼개야 합니다!)
-                # ─────────────────────────────────────────────────────────
-                # [숙제]: build_generation_prompt 함수를 수정해서, 
-                # 고정된 규칙(system)과 변동되는 조건(user)을 따로 반환하도록 만들어야 합니다.
-                
-                # 임시 예시 (선생님이 prompts.py를 수정하신 후 이렇게 받으셔야 합니다)
-                system_prompt, user_prompt = build_generation_prompt(
+                # 4. 분리된 파일에서 프롬프트 불러오기
+                prompt = build_generation_prompt(
                     ref_text=ref_text,
                     selected_major=selected_major,
                     selected_mid=selected_mid,
@@ -621,64 +560,40 @@ with tab1:
                     integration_rule=integration_rule
                 )
 
-# 5. 생성 및 배치 검증
+                # 5. 생성 및 배치 검증
                 try:
-                    # 🟦 분기 1: 순수 구글 키 (AIza...)를 사용한 네이티브 Gemini 통신 (캐싱 O)
                     if is_google_native:
-                        genai.configure(api_key=safe_api_key)
-                        cache_name = get_or_create_gemini_cache(system_prompt, safe_api_key)
-                        active_cache = caching.CachedContent.get(cache_name)
-                        
-                        model = genai.GenerativeModel.from_cached_content(
-                            cached_content=active_cache,
+                        # 🚀 [추가] Gemini 3.1 Pro Thinking Level을 'medium'으로 설정
+                        model = genai.GenerativeModel(
+                            "gemini-3.1-pro-preview",
                             generation_config=genai.types.GenerationConfig(
-                                thinking_config=genai.types.ThinkingConfig(thinking_level="high")
+                                thinking_config=genai.types.ThinkingConfig(
+                                    thinking_level="high"
+                                )
                             )
                         )
-                        response = model.generate_content(user_prompt)
+                        response = model.generate_content(prompt)
                         result_text = response.text
-
-                    # 🟦 분기 2: 순수 Anthropic 키 (sk-ant...)를 사용한 네이티브 Claude 통신 (캐싱 O)
-                    elif "claude" in selected_model.lower() and not safe_api_key.startswith("sk-or-"):
-                        import anthropic
-                        anthropic_client = anthropic.Anthropic(api_key=safe_api_key)
-                        response = anthropic_client.messages.create(
-                            model=selected_model,
-                            max_tokens=4000,
-                            system=[{
-                                "type": "text",
-                                "text": system_prompt,
-                                "cache_control": {"type": "ephemeral"}
-                            }],
-                            messages=[{"role": "user", "content": user_prompt}]
-                        )
-                        result_text = response.content[0].text
-
-                    # 🟦 분기 3: OpenRouter(sk-or-), 일반 OpenAI, Azure 등 호환 키를 쓴 모든 경우
                     else:
                         response = client.chat.completions.create(
                             model=selected_model,
-                            messages=[
-                                {"role": "system", "content": system_prompt},
-                                {"role": "user", "content": user_prompt}
-                            ],
+                            messages=[{"role": "user", "content": prompt}],
                             temperature=0.75,
                             max_tokens=7000
                         )
                         result_text = response.choices[0].message.content
 
-                    # 🚀 마크다운 이스케이프 및 빈 값 에러 처리
+                    # ... (이후 결과 쪼개기 및 검증 루프 동일) ...
+# 🚀 [추가] 마크다운 이스케이프 및 HTML 공백 강제 세탁
                     if result_text:
                         result_text = result_text.replace(r"\_", "_").replace("&nbsp;", " ")
-                    if result_text is None:
-                        raise Exception("AI가 텍스트 대신 빈 값을 반환했습니다.")
 
-                    # --- 결과 파싱 (기존 코드 유지) ---
+                    # 🚀 [핵심 방어 코드] AI 응답이 None(빈 값)으로 올 경우 에러를 강제로 발생시켜 안전하게 예외 처리함
+                    if result_text is None:
+                        raise Exception("AI가 텍스트 대신 빈 값을 반환했습니다. (안전 필터 차단 또는 서버 일시 오류)")
+
                     problems = result_text.split("【문제")
                     
-                    # (이후 선생님의 원본 코드인 use_validator 및 for 루프가 이 들여쓰기 라인에 맞춰 이어져야 합니다)
-
-
                     if use_validator:
                         st.write("DEBUG: 검증기 호출 시작...")
                         batch_feedback = validate_batch_llm(
@@ -727,7 +642,6 @@ with tab1:
                         })
 
                 except Exception as e:
-                    # except는 반드시 try와 같은 세로줄에 위치해야 합니다!
                     batch_results.append({
                         "type": qtype, 
                         "text": f"[통신오류] {str(e)}", 
