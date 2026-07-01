@@ -643,20 +643,20 @@ with tab1:
                                 result_text = response.choices[0].message.content
                                 
                             # 순수 Anthropic 키(sk-ant-...)를 쓰고 있다면?
-                            else:
-                                import anthropic
-                                anthropic_client = anthropic.Anthropic(api_key=safe_api_key)
-                                response = anthropic_client.messages.create(
-                                    model=selected_model,
-                                    max_tokens=4000,
-                                    system=[{
-                                        "type": "text",
-                                        "text": system_prompt,
-                                        "cache_control": {"type": "ephemeral"} # 공식 캐싱
-                                    }],
-                                    messages=[{"role": "user", "content": user_prompt}]
-                                )
-                                result_text = response.content[0].text
+                        else:
+                            import anthropic
+                            anthropic_client = anthropic.Anthropic(api_key=safe_api_key)
+                            response = anthropic_client.messages.create(
+                                model=selected_model,
+                                max_tokens=4000,
+                                system=[{
+                                    "type": "text",
+                                    "text": system_prompt,
+                                    "cache_control": {"type": "ephemeral"} # 공식 캐싱
+                                }],
+                                messages=[{"role": "user", "content": user_prompt}]
+                            )
+                            result_text = response.content[0].text
 # ─────────────────────────────────────────────────────────
                     # [수정] 5. 생성 및 배치 검증 내부의 Gemini 분기
                     # ─────────────────────────────────────────────────────────
