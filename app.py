@@ -560,10 +560,10 @@ with tab1:
                     integration_rule=integration_rule
                 )
 
-                # 5. 생성 및 배치 검증
+# 5. 생성 및 배치 검증
                 try:
                     if is_google_native:
-                        # 🚀 [추가] Gemini 3.1 Pro Thinking Level을 'medium'으로 설정
+                        # 🚀 Thinking 옵션은 그대로 유지합니다 (토큰 폭주 방지)
                         model = genai.GenerativeModel(
                             "gemini-3.1-pro-preview",
                             generation_config=genai.types.GenerationConfig(
@@ -573,7 +573,15 @@ with tab1:
                             )
                         )
                         response = model.generate_content(prompt)
-                        result_text = response.text
+                        
+                        # 🚀 [수정] 전체 텍스트를 통째로 가져오지 않고, '마지막 최종 답변 파트'만 추출합니다.
+                        try:
+                            # 응답 파트들(parts) 중 맨 마지막(-1) 텍스트만 꺼내옴
+                            result_text = response.candidates[0].content.parts[-1].text
+                        except Exception:
+                            # 구조가 다를 경우를 대비한 안전망 (폴백)
+                            result_text = response.text
+                            
                     else:
                         response = client.chat.completions.create(
                             model=selected_model,
