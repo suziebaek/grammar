@@ -5,3 +5,4 @@ openpyxl>=3.1.0
 openai
 st-gsheets-connection
 python-docx
+anthropic>=0.3.0
