@@ -622,25 +622,41 @@ with tab1:
                 )
 
 # ─────────────────────────────────────────────────────────
-                # 5. 생성 및 배치 검증 (캐싱 분기 적용)
-                # ─────────────────────────────────────────────────────────
-                try:
-                    # 🟦 분기 1: Claude 모델이 선택된 경우 (Anthropic 라이브러리 직접 호출)
-                    if "claude" in selected_model.lower():
-                        import anthropic
-                        anthropic_client = anthropic.Anthropic(api_key=safe_api_key)
-                        response = anthropic_client.messages.create(
-                            model=selected_model,
-                            max_tokens=4000,
-                            system=[{
-                                "type": "text",
-                                "text": system_prompt,
-                                "cache_control": {"type": "ephemeral"} # 🚀 클로드 캐싱 핵심
-                            }],
-                            messages=[{"role": "user", "content": user_prompt}]
-                        )
-                        result_text = response.content[0].text
-
+                    # 5. 생성 및 배치 검증 (캐싱 분기 적용)
+                    # ─────────────────────────────────────────────────────────
+                    try:
+                        # 🟦 분기 1: Claude 모델이 선택된 경우
+                        if "claude" in selected_model.lower():
+                            
+                            # 🚀 [추가/수정] 만약 OpenRouter 키를 쓰고 있다면?
+                            if safe_api_key.startswith("sk-or-"):
+                                # Anthropic 라이브러리가 아닌 기존 OpenAI 호환 클라이언트(client)를 그대로 사용
+                                response = client.chat.completions.create(
+                                    model=selected_model,
+                                    messages=[
+                                        {"role": "system", "content": system_prompt},
+                                        {"role": "user", "content": user_prompt}
+                                    ],
+                                    temperature=0.75,
+                                    max_tokens=7000
+                                )
+                                result_text = response.choices[0].message.content
+                                
+                            # 순수 Anthropic 키(sk-ant-...)를 쓰고 있다면?
+                            else:
+                                import anthropic
+                                anthropic_client = anthropic.Anthropic(api_key=safe_api_key)
+                                response = anthropic_client.messages.create(
+                                    model=selected_model,
+                                    max_tokens=4000,
+                                    system=[{
+                                        "type": "text",
+                                        "text": system_prompt,
+                                        "cache_control": {"type": "ephemeral"} # 공식 캐싱
+                                    }],
+                                    messages=[{"role": "user", "content": user_prompt}]
+                                )
+                                result_text = response.content[0].text
 # ─────────────────────────────────────────────────────────
                     # [수정] 5. 생성 및 배치 검증 내부의 Gemini 분기
                     # ─────────────────────────────────────────────────────────
