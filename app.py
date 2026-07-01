@@ -17,11 +17,12 @@ from datetime import datetime
 # ─────────────────────────────────────────────────────────
 # 1. 글로벌 캐시 함수 (맨 위에 배치)
 # ─────────────────────────────────────────────────────────
+
 @st.cache_resource
-def get_or_create_gemini_cache(system_prompt):
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+def get_or_create_gemini_cache(system_prompt, api_key):
+    genai.configure(api_key=api_key)  # st.secrets 대신 변수 사용
     cache = caching.CachedContent.create(
-        model='models/gemini-3.1-pro-preview', # 사용할 정확한 모델명
+        model='models/gemini-3.1-pro-preview',
         display_name='global_grammar_cache',
         system_instruction=system_prompt,
         ttl=datetime.timedelta(minutes=60),
@@ -641,16 +642,22 @@ with tab1:
                         )
                         result_text = response.content[0].text
 
+# ─────────────────────────────────────────────────────────
+                    # [수정] 5. 생성 및 배치 검증 내부의 Gemini 분기
+                    # ─────────────────────────────────────────────────────────
                     # 🟦 분기 2: Gemini 모델이 선택된 경우 (글로벌 캐싱 활용)
                     elif is_google_native or "gemini" in selected_model.lower():
-                        # 파일 맨 위에 만들어둔 get_or_create_gemini_cache 함수 호출
-                        cache_name = get_or_create_gemini_cache(system_prompt)
+                        # 여기서도 환경을 현재 유저의 키로 세팅해줍니다.
+                        genai.configure(api_key=safe_api_key)
+                        
+                        # 함수 호출 시 safe_api_key를 같이 넘겨줍니다!
+                        cache_name = get_or_create_gemini_cache(system_prompt, safe_api_key)
                         active_cache = caching.CachedContent.get(cache_name)
                         
                         model = genai.GenerativeModel.from_cached_content(
                             cached_content=active_cache,
                             generation_config=genai.types.GenerationConfig(
-                                thinking_config=genai.types.ThinkingConfig(thinking_level="high") # 🚀 씽킹 모드 유지
+                                thinking_config=genai.types.ThinkingConfig(thinking_level="high")
                             )
                         )
                         response = model.generate_content(user_prompt)
