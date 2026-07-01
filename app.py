@@ -12,8 +12,7 @@ import anthropic
 from docx import Document # 🚀 [추가] 워드 다운로드를 위한 라이브러리 (pip install python-docx 필요)
 from validator import validate_question_llm, validate_batch_llm  # <--- 이 줄이 반드시 있어야 합니다!
 from prompts import build_generation_prompt
-from datetime import datetime
-
+from datetime import timedelta
 # ─────────────────────────────────────────────────────────
 # 1. 글로벌 캐시 함수 (맨 위에 배치)
 # ─────────────────────────────────────────────────────────
@@ -25,7 +24,7 @@ def get_or_create_gemini_cache(system_prompt, api_key):
         model='models/gemini-3.1-pro-preview',
         display_name='global_grammar_cache',
         system_instruction=system_prompt,
-        ttl=datetime.timedelta(minutes=60),
+        ttl=timedelta(minutes=60),
     )
     return cache.name
 
