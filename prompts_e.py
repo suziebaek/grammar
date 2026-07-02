@@ -1,5 +1,5 @@
 # prompts.py
-def build_generation_prompt(ref_text, selected_major, selected_mid, selected_minor_label, point_text, qtype, num_for_this_type, extra, q_assignments, integration_rule):
+def build_generation_prompt_e(ref_text, selected_major, selected_mid, selected_minor_label, point_text, qtype, num_for_this_type, extra, q_assignments, integration_rule):
     return f"""당신은 대한민국 강남권 최고 수준의 영어 내신 출제위원입니다.
 === ★ [역할 C] 난이도 평가 척도 및 배정표 (필수 적용) ★ ===
 당신은 할당된 타겟 난이도에 맞추기 위해 아래 3가지 항목(A, B, C)의 점수를 합산하여 문항을 설계해야 합니다. (총점 0~9점)
