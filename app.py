@@ -705,7 +705,7 @@ with tab1:
                             
                             # 🚀 2. 다운로드용 텍스트 (브라켓 모두 제거 & 문제와 발문 한 줄 결합)
                             # 예: "문제4. 빈칸에 들어갈 말로 적절한 것은?"
-                            dl_text = f"문제{num_str}. {parts.get('발문', '').strip()}\n\n{new_passage.strip()}\n\n정답: {new_ans.strip()}\n해설: {new_exp.strip()}\n"
+                            dl_text = f"{num_str}. {parts.get('발문', '').strip()}\n\n{new_passage.strip()}\n\n정답: {new_ans.strip()}\n해설: {new_exp.strip()}\n"
                         else:
                             # 안전망: 파싱 실패 시 원본에서 괄호만 강제 제거
                             full_text = "【문제" + prob_text
