@@ -693,7 +693,7 @@ with tab1:
                                 end = full_text.index(nexts[0], start) if nexts else len(full_text)
                                 parts[tag] = full_text[start:end].replace("---", "").strip()
                         
-if "보기/지문" in parts and "정답" in parts and "해설" in parts:
+                        if "보기/지문" in parts and "정답" in parts and "해설" in parts:
                             new_passage, new_ans, new_exp = sort_options(parts["보기/지문"], parts["정답"], parts["해설"])
                             
                             # 문제 번호만 안전하게 추출
