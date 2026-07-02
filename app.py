@@ -9,8 +9,10 @@ import time
 import io
 from docx import Document # 🚀 [추가] 워드 다운로드를 위한 라이브러리 (pip install python-docx 필요)
 from validator import validate_question_llm, validate_batch_llm  # <--- 이 줄이 반드시 있어야 합니다!
-from prompts import build_generation_prompt
 from datetime import datetime
+from prompts import build_generation_prompt as build_prompt_h
+from prompts_e import build_generation_prompt_e
+
 
 TOPIC_LIST = [
     "고대 역사", "우주 탐사", "심해 생물", "인공지능", 
@@ -72,12 +74,15 @@ def create_word_document(history_data, is_multiple=False):
     doc.save(bio)
     return bio.getvalue()
 
-# ── 🎯 전역 설정: 구글 시트 탭별 GID URL 하드코딩 ────────────────────────
-# (이하 기존 코드 동일: QUESTIONS_SHEET_URL = ... )
 
 # ── 🎯 전역 설정: 구글 시트 탭별 GID URL 하드코딩 ────────────────────────
+# [H레벨 시트 URL]
 QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=939067680#gid=939067680"
 CONCEPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=0#gid=0"
+
+# 🚀 [추가] [E레벨 시트 URL] (선생님이 만드신 E레벨 전용 시트 URL로 교체하세요!)
+E_QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=939067680#gid=939067680"
+E_CONCEPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=0#gid=0"
 
 # ── 페이지 설정 ───────────────────────────────────────────
 st.set_page_config(
@@ -205,6 +210,13 @@ def load_gsheets_dual_db(q_url, c_url):
 
 # ── 사이드바 ───────────────────────────────────────────────────
 with st.sidebar:
+    st.markdown("### 🎚️ 타겟 레벨 선택")
+    selected_level = st.radio(
+        "출제할 문제의 난이도 레벨을 선택하세요.", 
+        ["H 레벨", "E 레벨"]
+    )
+    IS_E_LEVEL = selected_level == "E 레벨 (초/중 저학년)"
+    
     st.markdown("### ⚙️ API 설정")
     raw_api_key = st.text_input(
         "🔑 통합 API Key 입력창", 
@@ -232,9 +244,19 @@ with st.sidebar:
         st.caption(f"**활성화된 연결:** `{detected_platform}`")
         if "Azure" in detected_platform:
             azure_endpoint = st.text_input("Azure Endpoint URL", placeholder="https://YOUR_RESOURCE.openai.azure.com/")
-
+            
+# ── 선택된 레벨에 따라 전역 변수(소켓) 스위칭 ──
+if IS_E_LEVEL:
+    QUESTIONS = E_QUESTIONS
+    CONCEPTS = E_CONCEPTS
+    build_generation_prompt = build_generation_prompt_e
+else:
+    QUESTIONS = H_QUESTIONS
+    CONCEPTS = H_CONCEPTS
+    build_generation_prompt = build_prompt_h
 # ── DB 할당 (구글 시트 단일 모드) ──
-QUESTIONS, CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
+H_QUESTIONS, H_CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
+E_QUESTIONS, E_CONCEPTS = load_gsheets_dual_db(E_QUESTIONS_SHEET_URL, E_CONCEPTS_SHEET_URL)
     
 
 
