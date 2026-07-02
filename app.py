@@ -8,6 +8,7 @@ import re
 import time
 import io
 from docx import Document # 🚀 [추가] 워드 다운로드를 위한 라이브러리 (pip install python-docx 필요)
+from docx.shared import Pt  # 🚀 [추가] 폰트 크기(Pt) 조절을 위한 모듈
 from validator import validate_question_llm, validate_batch_llm  # <--- 이 줄이 반드시 있어야 합니다!
 from datetime import datetime
 from prompts import build_generation_prompt as build_prompt_h
@@ -44,9 +45,22 @@ def add_paragraph_with_tags(doc_or_element, text):
 # 🚀 [수정] 기존 create_word_document 함수 통째로 교체
 def create_word_document(history_data, is_multiple=False):
     doc = Document()
+    
+    # 🚀 [추가] 챕터(생성정보) 글자 크기를 10pt로 강제하는 헬퍼 함수
+    def add_custom_heading(text):
+        p = doc.add_paragraph()
+        run = p.add_run(text)
+        run.font.size = Pt(10) # 글자 크기 10
+        run.bold = True
+        
+    # 🚀 [추가] 워드에 쓸 때 [발문], [보기/지문] 등 브라켓을 싹 지우는 함수
+    def clean_and_add_text(text):
+        clean_text = text.replace("[발문]\n", "").replace("[보기/지문]\n", "").replace("[정답]\n", "").replace("[해설]\n", "")
+        add_paragraph_with_tags(doc, clean_text.strip())
+
     if not is_multiple:
         entry = history_data
-        doc.add_heading(f"생성 정보: {entry['major']} > {entry['mid']} > {entry['minor']}", 0)
+        add_custom_heading(f"생성 정보: {entry['major']} > {entry['mid']} > {entry['minor']}")
         doc.add_paragraph(f"난이도: {entry['difficulty']}")
         
         prev_type = None
@@ -54,12 +68,11 @@ def create_word_document(history_data, is_multiple=False):
             if r['type'] != prev_type:
                 doc.add_heading(f"🟦 {r['type']} 유형", level=1)
                 prev_type = r['type']
-            # 기존 doc.add_paragraph 대신 새로 만든 함수 사용
-            add_paragraph_with_tags(doc, r['text'])
+            clean_and_add_text(r['text'])
     else:
         doc.add_heading("전체 생성 문제 통합본", 0)
         for i, h in enumerate(history_data):
-            doc.add_heading(f"[세트 {i+1}] {h['major']} > {h['mid']} > {h['minor']}", level=1)
+            add_custom_heading(f"[세트 {i+1}] {h['major']} > {h['mid']} > {h['minor']}")
             doc.add_paragraph(f"난이도: {h['difficulty']}")
             
             prev_type = None
@@ -67,8 +80,7 @@ def create_word_document(history_data, is_multiple=False):
                 if r['type'] != prev_type:
                     doc.add_heading(f"🟦 {r['type']} 유형", level=2) 
                     prev_type = r['type']
-                # 기존 doc.add_paragraph 대신 새로 만든 함수 사용
-                add_paragraph_with_tags(doc, r['text'])
+                clean_and_add_text(r['text'])
                 
     bio = io.BytesIO()
     doc.save(bio)
@@ -529,20 +541,32 @@ with tab1:
             else:
                 client = OpenAI(api_key=safe_api_key)
 
+# 🚀 [수정] 레벨별 난이도 배정 메커니즘 분리
+            if IS_E_LEVEL:
+                # E레벨 (기존 스케일 0~9점 유지)
+                EASY_POOL = [c for c in ALL_COMBS if sum(c) <= 2]       # 하 (0~2)
+                MID_POOL  = [c for c in ALL_COMBS if 3 <= sum(c) <= 6]  # 중 (3~6)
+                HARD_POOL = [c for c in ALL_COMBS if sum(c) >= 7]       # 상 (7~9)
+            else:
+                # H레벨 (최대 7점 캡 적용)
+                EASY_POOL = [c for c in ALL_COMBS if sum(c) <= 2]       # 하 (0~2)
+                MID_POOL  = [c for c in ALL_COMBS if 3 <= sum(c) <= 5]  # 중 (3~5)
+                HARD_POOL = [c for c in ALL_COMBS if 6 <= sum(c) <= 7]  # 상 (6~7) 캡
+
             diff_targets = []
-            for _ in range(final_high): diff_targets.append({"level": "상", "comb": random.choice(HARD_COMBS)})
-            for _ in range(final_mid): diff_targets.append({"level": "중", "comb": random.choice(MID_COMBS)})
-            for _ in range(final_low): diff_targets.append({"level": "하", "comb": random.choice(EASY_COMBS)})
+            for _ in range(final_high): diff_targets.append({"level": "상", "comb": random.choice(HARD_POOL)})
+            for _ in range(final_mid):  diff_targets.append({"level": "중", "comb": random.choice(MID_POOL)})
+            for _ in range(final_low):  diff_targets.append({"level": "하", "comb": random.choice(EASY_POOL)})
             
             allocations = {t: [] for t in selected_types}
             for i, diff_dict in enumerate(diff_targets):
                 allocations[selected_types[i % len(selected_types)]].append(diff_dict)
 
-# 🚀 루프: 선택한 문제 유형별로 순회
-
-            # (수정) 루프 진입 전, 전체 쓸 소재를 미리 섞어둠
             random.shuffle(TOPIC_LIST)
             topic_index = 0
+            
+            # 🚀 [추가] 유형이 바뀌어도 문제 번호가 계속 이어지도록 전역 카운터 설정
+            global_q_num = 1 
 
             # 🚀 루프: 선택한 문제 유형별로 순회
             for idx, qtype in enumerate(selected_types):
@@ -559,19 +583,22 @@ with tab1:
                 ref_samples = random.sample(qtype_pool, min(6, len(qtype_pool)))
                 ref_text = "\n\n".join([f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}\n해설: {q['e']}" for i, q in enumerate(ref_samples)])
 
-# 2. 통합개념 로직
+                # 2. 통합개념 로직
                 integration_rule = ""
                 if len(selected_minors) > 1:
                     integration_rule = f"12. [복합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 복합 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
-# 3. 난이도 상세 조건 문자열 생성 (소재 강제 주입)
+                
+                # 3. 난이도 상세 조건 문자열 생성 (소재 강제 주입 및 🚀연속 번호 적용)
                 q_assignments = ""
-                for i, d_dict in enumerate(type_diffs):
+                for d_dict in type_diffs:
                     lvl = d_dict["level"]
                     a, b, c = d_dict["comb"]
-# 섞어둔 리스트에서 하나씩 빼서 씀 (12개 넘어가면 다시 처음부터)
                     topic = TOPIC_LIST[topic_index % len(TOPIC_LIST)]
                     topic_index += 1                    
-                    q_assignments += f"【문제 {i+1}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점) | 강제 지문 소재: [{topic}]\n"
+                    
+                    # 🚀 [수정] i+1 대신 global_q_num을 사용하여 번호 누적
+                    q_assignments += f"【문제 {global_q_num}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점) | 강제 지문 소재: [{topic}]\n"
+                    global_q_num += 1
 
                 # 4. 분리된 파일에서 프롬프트 불러오기
                 prompt = build_generation_prompt(
