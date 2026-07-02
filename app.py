@@ -917,8 +917,16 @@ with tab3:
             all_combined += f"\n{'='*70}\n"
             all_combined += f"[세트 {i+1}] {h['major']} > {h['mid']} > {h['minor']} | 난이도: {h['difficulty']}\n"
             all_combined += f"{'='*70}\n\n"
+            
+            prev_dl_type = None
             for r in h["results"]:
-                all_combined += f"【{r['type']} 유형】\n\n{r['text']}\n\n"
+                # 기존: all_combined += f"【{r['type']} 유형】\n\n{r['text']}\n\n"
+                
+                # 🚀 이렇게 교체
+                if r['type'] != prev_dl_type:
+                    all_combined += f"\n🟦 {r['type']} 유형\n\n"
+                    prev_dl_type = r['type']
+                all_combined += f"{r.get('dl_text', r['text'])}\n\n"
 
         c1, c2 = st.columns(2)
         with c1:
