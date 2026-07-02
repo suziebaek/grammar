@@ -210,13 +210,6 @@ def load_gsheets_dual_db(q_url, c_url):
 
 # ── 사이드바 ───────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 🎚️ 타겟 레벨 선택")
-    selected_level = st.radio(
-        "출제할 문제의 난이도 레벨을 선택하세요.", 
-        ["H 레벨", "E 레벨"]
-    )
-    IS_E_LEVEL = selected_level == "E 레벨 (초/중 저학년)"
-    
     st.markdown("### ⚙️ API 설정")
     raw_api_key = st.text_input(
         "🔑 통합 API Key 입력창", 
@@ -242,9 +235,24 @@ with st.sidebar:
             
     if raw_api_key:
         st.caption(f"**활성화된 연결:** `{detected_platform}`")
+# [여기서부터 복사하세요]
         if "Azure" in detected_platform:
             azure_endpoint = st.text_input("Azure Endpoint URL", placeholder="https://YOUR_RESOURCE.openai.azure.com/")
             
+    # ── 사이드바: 레벨 선택 UI 추가 ──
+    st.markdown("---")
+    st.markdown("### 🎚️ 타겟 레벨 선택")
+    selected_level = st.radio(
+        "출제할 문제의 난이도 레벨을 선택하세요.", 
+        ["H 레벨", "E 레벨"]
+    )
+    IS_E_LEVEL = selected_level == "E 레벨"
+
+# ── 사전 DB 로드 (캐싱) ──
+# (사이드바 블록이 끝난 후, 제일 먼저 데이터를 불러와야 합니다!)
+H_QUESTIONS, H_CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
+E_QUESTIONS, E_CONCEPTS = load_gsheets_dual_db(E_QUESTIONS_SHEET_URL, E_CONCEPTS_SHEET_URL)
+
 # ── 선택된 레벨에 따라 전역 변수(소켓) 스위칭 ──
 if IS_E_LEVEL:
     QUESTIONS = E_QUESTIONS
@@ -254,12 +262,9 @@ else:
     QUESTIONS = H_QUESTIONS
     CONCEPTS = H_CONCEPTS
     build_generation_prompt = build_prompt_h
-# ── DB 할당 (구글 시트 단일 모드) ──
-H_QUESTIONS, H_CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
-E_QUESTIONS, E_CONCEPTS = load_gsheets_dual_db(E_QUESTIONS_SHEET_URL, E_CONCEPTS_SHEET_URL)
-    
+# [여기까지 복사해서 덮어쓰세요]
 
-
+# (이 아래로는 기존 코드 그대로 유지)
 PRIMARY_TYPES = [
     "어법상 맞는 것", "어법상 옳은 것", "어법상 옳지 않은 것",
     "빈칸 채우기", "개수 고르기", "올바른 영작",
