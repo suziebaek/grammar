@@ -64,11 +64,17 @@ def create_word_document(history_data, is_multiple=False):
         doc.add_paragraph(f"난이도: {entry['difficulty']}")
         
         prev_type = None
-        for r in entry["results"]:
-            if r['type'] != prev_type:
-                doc.add_heading(f"🟦 {r['type']} 유형", level=1)
-                prev_type = r['type']
-            clean_and_add_text(r['text'])
+# 기존: add_paragraph_with_tags(doc, r['text'])
+
+# 🚀 단일 세트 처리 부분 (수정 후)
+            for r in entry["results"]:
+                if r['type'] != prev_type:
+                    doc.add_heading(f"🟦 {r['type']} 유형", level=1)
+                    prev_type = r['type']
+                # UI용 text 대신 다운로드용 dl_text 삽입
+                add_paragraph_with_tags(doc, r.get('dl_text', r['text']))
+
+
     else:
         doc.add_heading("전체 생성 문제 통합본", 0)
         for i, h in enumerate(history_data):
@@ -76,12 +82,13 @@ def create_word_document(history_data, is_multiple=False):
             doc.add_paragraph(f"난이도: {h['difficulty']}")
             
             prev_type = None
+# 🚀 다중 세트(전체) 처리 부분 (수정 후)
             for r in h["results"]:
                 if r['type'] != prev_type:
                     doc.add_heading(f"🟦 {r['type']} 유형", level=2) 
                     prev_type = r['type']
-                clean_and_add_text(r['text'])
-                
+                # UI용 text 대신 다운로드용 dl_text 삽입
+                add_paragraph_with_tags(doc, r.get('dl_text', r['text']))
     bio = io.BytesIO()
     doc.save(bio)
     return bio.getvalue()
@@ -686,19 +693,28 @@ with tab1:
                                 end = full_text.index(nexts[0], start) if nexts else len(full_text)
                                 parts[tag] = full_text[start:end].replace("---", "").strip()
                         
-                        if "보기/지문" in parts and "정답" in parts and "해설" in parts:
+if "보기/지문" in parts and "정답" in parts and "해설" in parts:
                             new_passage, new_ans, new_exp = sort_options(parts["보기/지문"], parts["정답"], parts["해설"])
                             
                             # 문제 번호만 안전하게 추출
                             num_match = re.search(r'^(.*?)\n', prob_text)
                             num_str = num_match.group(1).replace('】', '').strip() if num_match else f"{i+1}"
                             
-                            # 정렬이 완료된 내용으로 full_text 원본을 완전히 갈아끼움
+                            # 1. 화면 UI 표시용 (기존 유지: 파싱을 위해 괄호 필요)
                             full_text = f"【문제 {num_str}】\n[발문]\n{parts.get('발문', '')}\n\n[보기/지문]\n{new_passage}\n\n[정답]\n{new_ans}\n\n[해설]\n{new_exp}\n"
-                        
+                            
+                            # 🚀 2. 다운로드용 텍스트 (브라켓 모두 제거 & 문제와 발문 한 줄 결합)
+                            # 예: "문제4. 빈칸에 들어갈 말로 적절한 것은?"
+                            dl_text = f"문제{num_str}. {parts.get('발문', '').strip()}\n\n{new_passage.strip()}\n\n정답: {new_ans.strip()}\n해설: {new_exp.strip()}\n"
+                        else:
+                            # 안전망: 파싱 실패 시 원본에서 괄호만 강제 제거
+                            full_text = "【문제" + prob_text
+                            dl_text = full_text.replace("【", "").replace("】", ".").replace("[발문]\n", "").replace("[보기/지문]\n", "").replace("[정답]", "정답:").replace("[해설]", "해설:")
+
                         batch_results.append({
                             "type": qtype, 
                             "text": full_text, 
+                            "dl_text": dl_text, # 👈 다운로드 전용 텍스트 추가
                             "is_valid": is_valid, 
                             "feedback": feedback
                         })
@@ -806,8 +822,17 @@ with tab1:
         # 🚀 [수정] for 루프가 모두 끝난 뒤 '단 한 번만' 실행되도록 들여쓰기를 맞춥니다.
         st.markdown("---")
         set_text = f"[{entry['major']} > {entry['mid']} > {entry['minor']}] {entry.get('difficulty', '')}\n\n"
-        set_text += "\n\n".join(f"【{r['type']}】\n\n{r.get('text', '')}" for r in entry["results"])
-
+# 기존: set_text += "\n\n".join(f"【{r['type']}】\n\n{r.get('text', '')}" for r in entry["results"])
+        
+        # 🚀 이렇게 교체 (유형별 제목은 남기고, 문제 내용은 괄호 없는 버전으로)
+        set_text = f"[{entry['major']} > {entry['mid']} > {entry['minor']}] {entry.get('difficulty', '')}\n\n"
+        prev_dl_type = None
+        for r in entry["results"]:
+            if r['type'] != prev_dl_type:
+                set_text += f"\n🟦 {r['type']} 유형\n\n"
+                prev_dl_type = r['type']
+            set_text += f"{r.get('dl_text', r['text'])}\n\n"
+            
         # 날짜, 모델명 파싱 및 파일명 조합
         now_str = datetime.now().strftime("%y%m%d")
         safe_model = selected_model.split('/')[-1] 
