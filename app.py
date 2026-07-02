@@ -67,12 +67,12 @@ def create_word_document(history_data, is_multiple=False):
 # 기존: add_paragraph_with_tags(doc, r['text'])
 
 # 🚀 단일 세트 처리 부분 (수정 후)
-            for r in entry["results"]:
-                if r['type'] != prev_type:
-                    doc.add_heading(f"🟦 {r['type']} 유형", level=1)
-                    prev_type = r['type']
+        for r in entry["results"]:
+            if r['type'] != prev_type:
+                doc.add_heading(f"🟦 {r['type']} 유형", level=1)
+                prev_type = r['type']
                 # UI용 text 대신 다운로드용 dl_text 삽입
-                add_paragraph_with_tags(doc, r.get('dl_text', r['text']))
+            add_paragraph_with_tags(doc, r.get('dl_text', r['text']))
 
 
     else:
