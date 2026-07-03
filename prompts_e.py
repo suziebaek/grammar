@@ -15,7 +15,7 @@ QUESTION_INSTRUCTIONS = {
     "짝짓기": "다음 (A), (B), (C)의 각 네모 안에서 어법에 맞는 표현으로 바르게 짝지어진 것을 고르시오."
 }
 
-def build_generation_prompt(ref_text, selected_major, selected_mid, selected_minor_label, point_text, qtype, num_for_this_type, extra, q_assignments, integration_rule):
+def build_generation_prompt_e(ref_text, selected_major, selected_mid, selected_minor_label, point_text, qtype, num_for_this_type, extra, q_assignments, integration_rule):
     
     # 🚀 [추가] 2. 선택된 문제 유형에 맞는 발문 추출
     specific_instruction = QUESTION_INSTRUCTIONS.get(qtype, "다음 물음에 가장 적절한 답을 고르시오.")
