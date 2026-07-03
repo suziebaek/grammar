@@ -306,10 +306,12 @@ with st.sidebar:
         if "filter_log" in st.session_state:
             st.code(st.session_state.filter_log)
         
-        # 5. DB Column Output
-        st.markdown("**Fetched DB Columns:**")
-        if "db_columns" in st.session_state:
-            st.write(st.session_state.db_columns)
+        # 5. DB Column Output (Updated)
+        st.markdown("**Parsed DB Keys:**")
+        if 'QUESTIONS' in locals() and QUESTIONS:
+            st.write(list(QUESTIONS[0].keys()))
+        else:
+            st.write("Awaiting data load...")
             
 # ── 사전 DB 로드 (캐싱) ──
 # (사이드바 블록이 끝난 후, 제일 먼저 데이터를 불러와야 합니다!)
