@@ -664,7 +664,7 @@ with tab1:
                             model=selected_model,
                             messages=[{"role": "user", "content": prompt}],
                             temperature=0.75,
-                            max_tokens=9500
+                            max_tokens=20000
                         )
 
                         print("RAW API RESPONSE:", response)
