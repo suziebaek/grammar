@@ -283,7 +283,6 @@ with st.sidebar:
     IS_E_LEVEL = st.toggle("🟡 H 레벨 ↔ 🔵 E 레벨", value=False, help="스위치를 켜면 E레벨로 전환됩니다.")
 
 
-EASY_COMBS, MID_COMBS, HARD_COMBS = get_difficulty_combs(IS_E_LEVEL)
 
     # 2. 선택된 레벨에 따른 사이드바 배경색 지정 (연노랑 / 연파랑)
     sidebar_bg_color = "#eef2ff" if IS_E_LEVEL else "#fffdf0" # E레벨: 연파랑, H레벨: 연노랑
@@ -297,6 +296,9 @@ EASY_COMBS, MID_COMBS, HARD_COMBS = get_difficulty_combs(IS_E_LEVEL)
             }}
         </style>
     """, unsafe_allow_html=True)
+
+    
+EASY_COMBS, MID_COMBS, HARD_COMBS = get_difficulty_combs(IS_E_LEVEL)
 # ── DEBUG PANEL ──
     with st.expander("🛠️ Developer Debug Panel", expanded=False):
         # 1. Cache Clear Button (Fixes stuck sheet data instantly)
