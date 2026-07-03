@@ -409,9 +409,9 @@ with st.sidebar:
     with c1:
         st.markdown(f'<div class="stat-box"><div class="num">{len(QUESTIONS)}</div><div class="label">기출/참고 데이터</div></div>', unsafe_allow_html=True)
     with c2:
-        st.markdown(f'<div class="stat-box"><div class="num">{len(CONCEPTS)}</div><div class="label">대분류</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="stat-box"><div class="num">{len(CONCEPTS)}</div><div class="label">챕터</div></div>', unsafe_allow_html=True)
     st.markdown("")
-    st.markdown("**📚 문법 대분류**")
+    st.markdown("**📚 문법 챕터**")
     for major in CONCEPTS:
         total = sum(len(v) for v in CONCEPTS[major].values())
         st.markdown(f"- {major} ({total}개 소개념)")
@@ -434,10 +434,10 @@ with tab1:
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
 
         major_list = list(CONCEPTS.keys()) if CONCEPTS else ["데이터 없음"]
-        selected_major = st.selectbox("① 대분류", major_list, key="major")
+        selected_major = st.selectbox("① 챕터", major_list, key="major")
 
         mid_list = list(CONCEPTS[selected_major].keys()) if CONCEPTS and selected_major in CONCEPTS else ["데이터 없음"]
-        selected_mid = st.selectbox("② 중분류", mid_list, key="mid")
+        selected_mid = st.selectbox("② Cell", mid_list, key="mid")
 
         minor_items = CONCEPTS[selected_major][selected_mid] if CONCEPTS and selected_major in CONCEPTS and selected_mid in CONCEPTS[selected_major] else []
         
@@ -925,7 +925,7 @@ with tab2:
 
     fc1, fc2, fc3 = st.columns(3)
     with fc1:
-        f_major = st.selectbox("대분류 필터", ["전체"] + list(CONCEPTS.keys()), key="f_major")
+        f_major = st.selectbox("챕터 필터", ["전체"] + list(CONCEPTS.keys()), key="f_major")
     with fc2:
         all_q_types = sorted(set(q["t"] for q in QUESTIONS if q["t"]))
         f_type = st.selectbox("문제유형 필터", ["전체"] + all_q_types, key="f_type")
