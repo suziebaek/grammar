@@ -666,6 +666,9 @@ with tab1:
                             temperature=0.75,
                             max_tokens=9500
                         )
+
+                        print("RAW API RESPONSE:", response)
+                        
                         result_text = response.choices[0].message.content
 
                     # ... (이후 결과 쪼개기 및 검증 루프 동일) ...
