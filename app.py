@@ -226,6 +226,34 @@ def load_gsheets_dual_db(q_url, c_url):
             if not major or not mid:
                 continue
                 
+            # --- [수정] DB 과도기 대비 안전장치가 적용된 출제포인트 파싱 ---
+            point_parts = []
+            
+            # 1) 기존 구형 DB 열이 있다면 추가
+            legacy_point = str(row.get('출제포인트', '')).strip()
+            if legacy_point:
+                point_parts.append(f"[핵심 개념] {legacy_point}")
+                
+            # 2) 신규 DB 열 데이터 추출 (없으면 에러 없이 빈칸 처리)
+            detail_rule = str(row.get('세부규칙(조회 키)', '')).strip()
+            basic_rule = str(row.get('기본 규칙(정답 형태)', '')).strip()
+            exception_rule = str(row.get('☆(특수 or 예외 용법)', '')).strip()
+            adj_error = str(row.get('인접 오류 형태', '')).strip()
+            error_desc = str(row.get('오류 설명', '')).strip()
+            
+            # 3) 신규 데이터가 하나라도 존재하면 예쁘게 포맷팅하여 덧붙임
+            if detail_rule or basic_rule or adj_error:
+                new_point = "▶ [세부규칙 및 매력적 오답 설계 데이터]\n"
+                if detail_rule: new_point += f" - 세부규칙: {detail_rule}\n"
+                if basic_rule: new_point += f" - 기본규칙: {basic_rule}\n"
+                if exception_rule: new_point += f" - 예외/특수: {exception_rule}\n"
+                if adj_error: new_point += f" - 인접오류(매력적오답 타겟): {adj_error}\n"
+                if error_desc: new_point += f" - 오류 사유: {error_desc}\n"
+                point_parts.append(new_point.strip())
+                
+            final_point_text = "\n\n".join(point_parts) if point_parts else "데이터 없음"
+            # -----------------------------------------------------------------
+
             if major not in concepts_hierarchy:
                 concepts_hierarchy[major] = {}
             if mid not in concepts_hierarchy[major]:
@@ -234,7 +262,7 @@ def load_gsheets_dual_db(q_url, c_url):
             concepts_hierarchy[major][mid].append({
                 "minor": minor,
                 "difficulty": str(row.get('난이도', '')).strip(),
-                "point": str(row.get('출제포인트', '')).strip()
+                "point": final_point_text # 가공된 텍스트 주입
             })
             
         return questions_pool, concepts_hierarchy
