@@ -41,8 +41,7 @@ def get_difficulty_combs(is_e_level):
         
     return easy, mid, hard
 
-# 🚀 2. 토글 값(IS_E_LEVEL)을 함수에 넣어서 변수 3개 동적 할당
-EASY_COMBS, MID_COMBS, HARD_COMBS = get_difficulty_combs(IS_E_LEVEL)
+
 
 def add_paragraph_with_tags(doc_or_element, text):
     p = doc_or_element.add_paragraph()
@@ -282,7 +281,10 @@ with st.sidebar:
     # 1. 라디오 버튼 대신 '좌우로 움직이는 레버(Toggle)' 사용
     # 스위치가 꺼져있으면 False(H레벨), 켜져있으면 True(E레벨)
     IS_E_LEVEL = st.toggle("🟡 H 레벨 ↔ 🔵 E 레벨", value=False, help="스위치를 켜면 E레벨로 전환됩니다.")
-    
+
+
+EASY_COMBS, MID_COMBS, HARD_COMBS = get_difficulty_combs(IS_E_LEVEL)
+
     # 2. 선택된 레벨에 따른 사이드바 배경색 지정 (연노랑 / 연파랑)
     sidebar_bg_color = "#eef2ff" if IS_E_LEVEL else "#fffdf0" # E레벨: 연파랑, H레벨: 연노랑
     
