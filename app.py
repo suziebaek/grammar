@@ -664,7 +664,7 @@ with tab1:
                             model=selected_model,
                             messages=[{"role": "user", "content": prompt}],
                             temperature=0.75,
-                            max_tokens=7000
+                            max_tokens=9500
                         )
                         result_text = response.choices[0].message.content
 
