@@ -24,12 +24,25 @@ TOPIC_LIST = [
     
 ]
 
-# ── 🚀 [수정] 난이도 세부 조합 (A, B, C) 64가지 경우의 수 사전 계산 ──
-ALL_COMBS = [(a, b, c) for a in (0, 1, 2, 3) for b in (0, 1, 2, 3) for c in (0, 1, 2, 3)]
-EASY_COMBS = [c for c in ALL_COMBS if sum(c) <= 2]       # 하: 0~2점 (10가지)
-MID_COMBS = [c for c in ALL_COMBS if 3 <= sum(c) <= 6]   # 중: 3~6점 (44가지)
-HARD_COMBS = [c for c in ALL_COMBS if sum(c) >= 7]       # 상: 7~9점 (10가지)
-# 🚀 [추가] <u> 태그 인식해서 워드에 밑줄 긋는 헬퍼 함수
+# 🚀 1. 난이도 분배 함수 (H레벨 최대 7점 제한 적용)
+def get_difficulty_combs(is_e_level):
+    ALL_COMBS = [(a, b, c) for a in (0, 1, 2, 3) for b in (0, 1, 2, 3) for c in (0, 1, 2, 3)]
+    
+    if is_e_level:
+        # 🔵 E 레벨 (높은 레벨 / 심화)
+        easy = [c for c in ALL_COMBS if sum(c) <= 3]       # 하: 0~3점
+        mid  = [c for c in ALL_COMBS if 4 <= sum(c) <= 6]  # 중: 4~6점
+        hard = [c for c in ALL_COMBS if 7 <= sum(c) <= 9]  # 상: 7~9점
+    else:
+        # 🟡 H 레벨 (낮은 레벨 / 기본 - 최대 7점까지만 허용)
+        easy = [c for c in ALL_COMBS if sum(c) <= 2]       # 하: 0~2점
+        mid  = [c for c in ALL_COMBS if 3 <= sum(c) <= 5]  # 중: 3~5점
+        hard = [c for c in ALL_COMBS if 6 <= sum(c) <= 7]  # 상: 6~7점 (8, 9점 원천 차단)
+        
+    return easy, mid, hard
+
+# 🚀 2. 토글 값(IS_E_LEVEL)을 함수에 넣어서 변수 3개 동적 할당
+EASY_COMBS, MID_COMBS, HARD_COMBS = get_difficulty_combs(IS_E_LEVEL)
 
 def add_paragraph_with_tags(doc_or_element, text):
     p = doc_or_element.add_paragraph()
