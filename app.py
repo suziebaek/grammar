@@ -189,9 +189,7 @@ def load_gsheets_dual_db(q_url, c_url):
                 if "상" in val: q_diff = "상"
                 elif "중" in val: q_diff = "중"
                 elif "하" in val: q_diff = "하"
-# 🚀 DIAGNOSTIC PRINT 🚀
-            print("ROW COLUMNS SEEN BY PYTHON:", row.keys())
-            break # Stops after first row to prevent spam
+
             questions_pool.append({
                 "u": str(row.get('대분류', '')).strip(),
                 "s": str(row.get('소분류', '')).strip(),
