@@ -198,7 +198,8 @@ def load_gsheets_dual_db(q_url, c_url):
                 "c": str(row.get('보기', '')).strip(),
                 "a": str(row.get('정답', '')).strip(),
                 "e": str(row.get('해설', '')).strip(),
-                "d": q_diff
+                "d": q_diff,
+                "tag": str(row.get('태그', '')).strip() # 🚀 이 줄 추가
             })
 
         # 2. 'concept_hierarchy' 탭 파싱
@@ -597,9 +598,11 @@ with tab1:
                 progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {num_for_this_type}문제 생성 중...")
 
                 # 1. 기출 참고 데이터 준비
-                type_matched = [q for q in QUESTIONS if q["t"] == qtype]
-                unit_matched = [q for q in QUESTIONS if selected_major in q["u"]]
-                qtype_pool = type_matched if len(type_matched) >= 3 else (unit_matched if unit_matched else QUESTIONS)
+# 🚀 조건문에 '지문형' 태그가 없는 문제만 걸러내는 로직 추가
+                type_matched = [q for q in QUESTIONS if q["t"] == qtype and "지문형" not in q.get("tag", "")]
+                unit_matched = [q for q in QUESTIONS if selected_major in q["u"] and "지문형" not in q.get("tag", "")]
+                
+                qtype_pool = type_matched if len(type_matched) >= 3 else (unit_matched if unit_matched else [q for q in QUESTIONS if "지문형" not in q.get("tag", "")])
                 ref_samples = random.sample(qtype_pool, min(6, len(qtype_pool)))
                 ref_text = "\n\n".join([f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}\n해설: {q['e']}" for i, q in enumerate(ref_samples)])
 
