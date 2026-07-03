@@ -335,12 +335,15 @@ with st.sidebar:
 H_QUESTIONS, H_CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
 E_QUESTIONS, E_CONCEPTS = load_gsheets_dual_db(E_QUESTIONS_SHEET_URL, E_CONCEPTS_SHEET_URL)
 
-
-# 🚀 [수정] 레벨별 난이도 배정 메커니즘 분리 (미리 계산된 콤보 사용)
-EASY_POOL = EASY_COMBS
-MID_POOL = MID_COMBS
-HARD_POOL = HARD_COMBS
-# [여기까지 복사해서 덮어쓰세요]
+# 🚀 [복구] 지워졌던 전역 변수 스위칭 로직 다시 추가
+if IS_E_LEVEL:
+    QUESTIONS = E_QUESTIONS
+    CONCEPTS = E_CONCEPTS
+    build_generation_prompt = build_generation_prompt_e
+else:
+    QUESTIONS = H_QUESTIONS
+    CONCEPTS = H_CONCEPTS
+    build_generation_prompt = build_prompt_h
 
 # (이 아래로는 기존 코드 그대로 유지)
 PRIMARY_TYPES = [
@@ -607,18 +610,12 @@ with tab1:
             else:
                 client = OpenAI(api_key=safe_api_key)
 
-# 🚀 [수정] 레벨별 난이도 배정 메커니즘 분리
-            if IS_E_LEVEL:
-                # E레벨 (기존 스케일 0~9점 유지)
-                EASY_POOL = [c for c in ALL_COMBS if sum(c) <= 2]       # 하 (0~2)
-                MID_POOL  = [c for c in ALL_COMBS if 3 <= sum(c) <= 6]  # 중 (3~6)
-                HARD_POOL = [c for c in ALL_COMBS if sum(c) >= 7]       # 상 (7~9)
-            else:
-                # H레벨 (최대 7점 캡 적용)
-                EASY_POOL = [c for c in ALL_COMBS if sum(c) <= 2]       # 하 (0~2)
-                MID_POOL  = [c for c in ALL_COMBS if 3 <= sum(c) <= 5]  # 중 (3~5)
-                HARD_POOL = [c for c in ALL_COMBS if 6 <= sum(c) <= 7]  # 상 (6~7) 캡
 
+# 🚀 [수정] 레벨별 난이도 배정 메커니즘 분리 (미리 계산된 콤보 사용)
+            EASY_POOL = EASY_COMBS
+            MID_POOL = MID_COMBS
+            HARD_POOL = HARD_COMBS
+            
             diff_targets = []
             for _ in range(final_high): diff_targets.append({"level": "상", "comb": random.choice(HARD_POOL)})
             for _ in range(final_mid):  diff_targets.append({"level": "중", "comb": random.choice(MID_POOL)})
