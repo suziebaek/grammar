@@ -603,8 +603,8 @@ with tab1:
                 unit_matched = [q for q in QUESTIONS if selected_major in q["u"] and "지문형" not in q.get("tag", "")]
                 
                 qtype_pool = type_matched if len(type_matched) >= 3 else (unit_matched if unit_matched else [q for q in QUESTIONS if "지문형" not in q.get("tag", "")])
-                ref_samples = random.sample(qtype_pool, min(6, len(qtype_pool)))
-                ref_text = "\n\n".join([f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}\n해설: {q['e']}" for i, q in enumerate(ref_samples)])
+                ref_samples = random.sample(qtype_pool, min(4, len(qtype_pool)))
+                ref_text = "\n\n".join([f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}" for i, q in enumerate(ref_samples)])
 
                 # 2. 통합개념 로직
                 integration_rule = ""
