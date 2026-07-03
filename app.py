@@ -335,15 +335,11 @@ with st.sidebar:
 H_QUESTIONS, H_CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
 E_QUESTIONS, E_CONCEPTS = load_gsheets_dual_db(E_QUESTIONS_SHEET_URL, E_CONCEPTS_SHEET_URL)
 
-# ── 선택된 레벨에 따라 전역 변수(소켓) 스위칭 ──
-if IS_E_LEVEL:
-    QUESTIONS = E_QUESTIONS
-    CONCEPTS = E_CONCEPTS
-    build_generation_prompt = build_generation_prompt_e
-else:
-    QUESTIONS = H_QUESTIONS
-    CONCEPTS = H_CONCEPTS
-    build_generation_prompt = build_prompt_h
+
+# 🚀 [수정] 레벨별 난이도 배정 메커니즘 분리 (미리 계산된 콤보 사용)
+            EASY_POOL = EASY_COMBS
+            MID_POOL = MID_COMBS
+            HARD_POOL = HARD_COMBS
 # [여기까지 복사해서 덮어쓰세요]
 
 # (이 아래로는 기존 코드 그대로 유지)
