@@ -169,7 +169,7 @@ def load_gsheets_dual_db(q_url, c_url):
         df_questions.columns = [str(c).strip() for c in df_questions.columns]
         df_concepts.columns = [str(c).strip() for c in df_concepts.columns]
         # 🚀 SAFE DIAGNOSTIC PRINT 🚀
-        print("FETCHED COLUMNS:", df_questions.columns.tolist())
+        st.session_state.db_columns = df_questions.columns.tolist()
         
         if '대분류' not in df_questions.columns:
             st.error("🚨 기출DB를 제대로 읽어오지 못했습니다. 구글 시트 공유 권한을 확인해 주세요.")
@@ -305,6 +305,12 @@ with st.sidebar:
         st.markdown("**Last Filter Check:**")
         if "filter_log" in st.session_state:
             st.code(st.session_state.filter_log)
+        
+        # 5. DB Column Output
+        st.markdown("**Fetched DB Columns:**")
+        if "db_columns" in st.session_state:
+            st.write(st.session_state.db_columns)
+            
 # ── 사전 DB 로드 (캐싱) ──
 # (사이드바 블록이 끝난 후, 제일 먼저 데이터를 불러와야 합니다!)
 H_QUESTIONS, H_CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
