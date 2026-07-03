@@ -337,9 +337,9 @@ E_QUESTIONS, E_CONCEPTS = load_gsheets_dual_db(E_QUESTIONS_SHEET_URL, E_CONCEPTS
 
 
 # 🚀 [수정] 레벨별 난이도 배정 메커니즘 분리 (미리 계산된 콤보 사용)
-            EASY_POOL = EASY_COMBS
-            MID_POOL = MID_COMBS
-            HARD_POOL = HARD_COMBS
+        EASY_POOL = EASY_COMBS
+        MID_POOL = MID_COMBS
+        HARD_POOL = HARD_COMBS
 # [여기까지 복사해서 덮어쓰세요]
 
 # (이 아래로는 기존 코드 그대로 유지)
