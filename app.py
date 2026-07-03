@@ -298,7 +298,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     
-EASY_COMBS, MID_COMBS, HARD_COMBS = get_difficulty_combs(IS_E_LEVEL)
+    EASY_COMBS, MID_COMBS, HARD_COMBS = get_difficulty_combs(IS_E_LEVEL)
 # ── DEBUG PANEL ──
     with st.expander("🛠️ Developer Debug Panel", expanded=False):
         # 1. Cache Clear Button (Fixes stuck sheet data instantly)
