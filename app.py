@@ -280,7 +280,29 @@ with st.sidebar:
             }}
         </style>
     """, unsafe_allow_html=True)
-
+# ── DEBUG PANEL ──
+    with st.expander("🛠️ Developer Debug Panel", expanded=False):
+        # 1. Cache Clear Button (Fixes stuck sheet data instantly)
+        if st.button("🗑️ Clear GSheets Cache", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+            
+        # 2. Live Variables
+        st.markdown("**Live State:**")
+        st.write(f"Mode: {'E-Level' if IS_E_LEVEL else 'H-Level'}")
+        st.write(f"Model: {selected_model}")
+        
+        # 3. API Response Output
+        st.markdown("**Last API Raw Output:**")
+        if "raw_api_log" in st.session_state:
+            st.json(st.session_state.raw_api_log)
+        else:
+            st.caption("Awaiting first generation...")
+            
+        # 4. Filter Diagnostic Output
+        st.markdown("**Last Filter Check:**")
+        if "filter_log" in st.session_state:
+            st.code(st.session_state.filter_log)
 # ── 사전 DB 로드 (캐싱) ──
 # (사이드바 블록이 끝난 후, 제일 먼저 데이터를 불러와야 합니다!)
 H_QUESTIONS, H_CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
@@ -600,6 +622,10 @@ with tab1:
                 # 1. 기출 참고 데이터 준비
 # 🚀 조건문에 '지문형' 태그가 없는 문제만 걸러내는 로직 추가
                 type_matched = [q for q in QUESTIONS if q["t"] == qtype and "지문형" not in q.get("tag", "")]
+                
+                # Send filter pool size to debug panel
+                st.session_state.filter_log = f"Pool size for '{qtype}': {len(type_matched)} surviving questions."
+ 
                 unit_matched = [q for q in QUESTIONS if selected_major in q["u"] and "지문형" not in q.get("tag", "")]
                 
                 qtype_pool = type_matched if len(type_matched) >= 3 else (unit_matched if unit_matched else [q for q in QUESTIONS if "지문형" not in q.get("tag", "")])
@@ -650,6 +676,8 @@ with tab1:
                             )
                         )
                         response = model.generate_content(prompt)
+                        # Send raw JSON dict to debug panel instead of terminal
+                        st.session_state.raw_api_log = response.model_dump()
                         
                         # 🚀 [수정] 전체 텍스트를 통째로 가져오지 않고, '마지막 최종 답변 파트'만 추출합니다.
                         try:
