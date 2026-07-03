@@ -168,6 +168,8 @@ def load_gsheets_dual_db(q_url, c_url):
         # 열 이름 공백 제거
         df_questions.columns = [str(c).strip() for c in df_questions.columns]
         df_concepts.columns = [str(c).strip() for c in df_concepts.columns]
+        # 🚀 SAFE DIAGNOSTIC PRINT 🚀
+        print("FETCHED COLUMNS:", df_questions.columns.tolist())
         
         if '대분류' not in df_questions.columns:
             st.error("🚨 기출DB를 제대로 읽어오지 못했습니다. 구글 시트 공유 권한을 확인해 주세요.")
@@ -189,9 +191,7 @@ def load_gsheets_dual_db(q_url, c_url):
                 if "상" in val: q_diff = "상"
                 elif "중" in val: q_diff = "중"
                 elif "하" in val: q_diff = "하"
-# 🚀 DIAGNOSTIC PRINT 🚀
-            print("ROW COLUMNS SEEN BY PYTHON:", row.keys())
-            break # Stops after first row to prevent spam
+
             questions_pool.append({
                 "u": str(row.get('대분류', '')).strip(),
                 "s": str(row.get('소분류', '')).strip(),
