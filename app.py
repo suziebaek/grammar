@@ -239,7 +239,7 @@ with st.sidebar:
     
     selected_model = st.selectbox(
         "🤖 출제 인공지능 엔진 모델",
-        options=["anthropic/claude-sonnet-5","anthropic/claude-sonnet-4.6", "anthropic/claude-opus-4.8", "openai/gpt-5.5", "openai/gpt-5.1", "google/gemini-3.1-pro-preview"]
+        options=["anthropic/claude-sonnet-4.6", "anthropic/claude-opus-4.8", "openai/gpt-5.5", "openai/gpt-5.1", "google/gemini-3.1-pro-preview"]
     )
     
     detected_platform = "대기 중..."
@@ -664,7 +664,7 @@ with tab1:
                             model=selected_model,
                             messages=[{"role": "user", "content": prompt}],
                             temperature=0.75,
-                            max_tokens=20000
+                            max_tokens=9000
                         )
 
                         print("RAW API RESPONSE:", response)
