@@ -160,7 +160,43 @@ def sort_options(passage_text, ans_text, exp_text):
         new_exp_text = new_exp_text.replace(f"__TEMP_{old_k}__", new_k)
         
     return passage + new_opts_str.strip(), new_ans, new_exp_text
+
+# 🚀 [추가] 2단계 JSON 초경량 검증기 함수
+def validate_batch_json(full_text, client, is_google_native, target_model):
+    val_prompt = f"""당신은 엄격한 영어 문항 검수 위원입니다.
+생성된 [문제 세트]가 아래 [체크리스트]를 만족하는지 검증하세요.
+
+[체크리스트]
+1. 난이도 조건: [META: ...] 태그의 난이도 배정 조건이 실제 설계에 반영되었는가?
+2. 정답 무결성: 복수 정답의 여지가 1%라도 있거나, 해설과 정답 번호가 논리적으로 모순되지 않는가?
+3. 시각적 포맷팅: 보기 선지의 글자 수가 15~17자 내외로 시각적 균형을 이루고 있는가?
+
+[문제 세트]
+{full_text}
+
+[출력 규칙 - 절대 엄수]
+- 오직 유효한 JSON 형식으로만 출력. 마크다운이나 다른 설명 금지.
+- 통과 = "P", 실패 = "F: [사유]"
+- 예: {{"1": "P", "2": "F: 보기 시각적 균형 위반"}}
+"""
+    try:
+        if is_google_native:
+            response = client.generate_content(val_prompt)
+            raw = response.text.strip()
+        else:
+            response = client.chat.completions.create(
+                model=target_model, messages=[{"role": "user", "content": val_prompt}],
+                temperature=0.0, response_format={"type": "json_object"}
+            )
+            raw = response.choices[0].message.content.strip()
+        return json.loads(raw.replace("```json", "").replace("```", "").strip())
+    except:
+        return {}
+        
+
 # ── 데이터 로드 함수 (구글 시트 전용) ────────────────────────────────────────
+
+
 @st.cache_data(ttl=180)
 def load_gsheets_dual_db(q_url, c_url):
     try:
@@ -728,20 +764,57 @@ with tab1:
                     if result_text is None:
                         raise Exception("AI가 텍스트 대신 빈 값을 반환했습니다. (안전 필터 차단 또는 서버 일시 오류)")
 
-                    problems = result_text.split("【문제")
-                    
+# ⬇️ [새로 붙여넣을 코드 시작] ⬇️
+                    # 🚀 1. 검증 및 부분 재생성 가로채기 루프 (Interceptor)
                     if use_validator:
-                        st.write("DEBUG: 검증기 호출 시작...")
-                        batch_feedback = validate_batch_llm(
-                            full_text=result_text,
-                            client=client,
-                            is_google_native=is_google_native,
-                            target_model="google/gemini-3.1-pro-preview",
-                            use_llm=use_validator
-                        )
-                        st.write("DEBUG: 검증기 호출 완료.")
-                    else:
-                        batch_feedback = {}
+                        st.write("DEBUG: 🔎 JSON 검증 및 부분 재생성 시작...")
+                        val_results = validate_batch_json(result_text, client, is_google_native, "gemini-3.1-pro-preview")
+                        
+                        # 텍스트를 문제 번호 단위로 임시 딕셔너리에 분리
+                        q_dict = {}
+                        raw_splits = re.split(r'(【문제 \d+】)', result_text)
+                        for i in range(1, len(raw_splits), 2):
+                            q_num = int(re.search(r'\d+', raw_splits[i]).group())
+                            q_dict[q_num] = raw_splits[i] + "\n" + raw_splits[i+1].strip()
+
+                        # FAIL 문항만 재생성 호출 (Call 3)
+                        for q_num_str, status in val_results.items():
+                            if status.startswith("F"):
+                                q_num = int(q_num_str)
+                                fail_reason = status.replace("F:", "").strip()
+                                original_text = q_dict.get(q_num, "")
+                                
+                                st.write(f"DEBUG: ⚠️ 문제 {q_num} 재생성 중... (사유: {fail_reason})")
+                                retry_prompt = f"당신이 방금 생성한 문항은 검수에서 반려되었습니다.\n[사유]: {fail_reason}\n위 사유를 완벽히 수정하여 문항 1개만 다시 출력하세요.\n\n[원본 문항]\n{original_text}"
+                                
+                                try:
+                                    if is_google_native:
+                                        new_text = model.generate_content(retry_prompt).text.strip()
+                                    else:
+                                        new_text = client.chat.completions.create(model=selected_model, messages=[{"role": "user", "content": retry_prompt}]).choices[0].message.content.strip()
+                                    
+                                    # 육안 검수 플래그 덮어쓰기
+                                    q_dict[q_num] = f"🚨 **[육안 검수 요망: 재생성 문항 (사유: {fail_reason})]**\n\n" + new_text
+                                except Exception as e:
+                                    pass # 재생성 실패 시 원본 유지
+                        
+                        # 딕셔너리를 다시 하나의 텍스트로 병합
+                        result_text = "\n\n".join([q_dict[k] for k in sorted(q_dict.keys())])
+                        st.write("DEBUG: ✅ 재생성 및 병합 완료.")
+
+                    # 🚀 2. 후처리 클리닝 (META 태그 삭제 및 넘버링 재정렬)
+                    result_text = re.sub(r'\[META:.*?\]', '', result_text, flags=re.DOTALL)
+                    new_splits = re.split(r'(【문제 \d+】)', result_text)
+                    current_idx = 1
+                    for i in range(1, len(new_splits), 2):
+                        new_splits[i] = f"【문제 {current_idx}】"
+                        current_idx += 1
+                    result_text = "".join(new_splits)
+
+                    # 🚀 3. 기존의 렌더링 파이프라인으로 안전하게 넘겨주기
+                    problems = result_text.split("【문제")
+                    batch_feedback = {} # UI에서 에러가 나지 않도록 빈 딕셔너리 강제 할당
+# ⬆️ [새로 붙여넣을 코드 끝] ⬆️
                     
                     for i, prob_text in enumerate(problems[1:]):
                         prob_text = prob_text.strip()
