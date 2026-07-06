@@ -13,7 +13,7 @@ from validator import validate_question_llm, validate_batch_llm  # <--- 이 줄�
 from datetime import datetime
 from prompts import build_generation_prompt as build_prompt_h
 from prompts_e import build_generation_prompt_e
-from prompts import build_retry_prompt
+from prompts import build_batch_retry_prompt
 
 TOPIC_LIST = [
     "고대 역사", "우주 탐사", "심해 생물", "인공지능", 
@@ -764,56 +764,85 @@ with tab1:
                 except Exception as e:
                     st.error(f"{qtype} 유형 생성 중 에러 발생: {e}")
 
-            # ── 2. 통합 검증 및 부분 재생성 루프 ──
+            # ── 2. 통합 검증 및 부분 재생성 루프 (1회 통신으로 모든 에러 교정) ──
             if use_validator and all_generated_dict:
                 progress.progress(1.0, text="🔎 전체 문항 대상 통합 검수 진행 중...")
                 combined_text = "\n\n".join([all_generated_dict[k] for k in sorted(all_generated_dict.keys())])
                 
+                # 단 1회의 검증 API 호출
                 val_results = validate_batch_json(combined_text, point_text, client, is_google_native, val_selected_model)
-                
-                # 🚀 로그 바구니에 수신 데이터 저장
                 validation_debug_logs.append(f"📋 [시스템] 검수 AI가 보낸 원본 결과표: {val_results}")
                 
+                # 🚀 [핵심 변경] 반려된 문항들을 한 바구니에 수집
+                failed_items = []
                 for q_num_str, status in val_results.items():
                     status_str = str(status).strip()
                     
                     if status_str.startswith("F") or "실패" in status_str:
                         try:
                             match = re.search(r'\d+', str(q_num_str))
-                            if not match: 
-                                validation_debug_logs.append(f"⚠️ 경고: 키값('{q_num_str}')에서 숫자를 추출하지 못했습니다.")
-                                continue
-                            
+                            if not match: continue
                             q_num = int(match.group())
+                            
                             fail_reason = status_str.replace("F:", "").replace("실패:", "").strip()
                             original_text = all_generated_dict.get(q_num, "")
                             
-                            if not original_text: 
-                                validation_debug_logs.append(f"❌ 오류: 【문제 {q_num}】번의 원본을 찾을 수 없어 패스합니다.")
-                                continue
-                            
-                            validation_debug_logs.append(f"🔄 [교정 시작] 문제 {q_num}번 반려 감지 -> 사유: {fail_reason}")
-                            progress.progress(1.0, text=f"⚠️ 문제 {q_num} 재생성 중... (사유: {fail_reason})")
-                            retry_prompt = build_retry_prompt(original_text, fail_reason, point_text)
-                            
-                            if is_google_native:
-                                res = model.generate_content(retry_prompt)
-                                try:
-                                    new_text = res.candidates[0].content.parts[-1].text.strip()
-                                except Exception:
-                                    new_text = res.text.strip()
-                            else:
-                                new_text = client.chat.completions.create(
-                                    model=selected_model, messages=[{"role": "user", "content": retry_prompt}]
-                                ).choices[0].message.content.strip()
-                            
-                            all_generated_dict[q_num] = f"🚨 **[육안 검수 요망: 재생성 문항 (사유: {fail_reason})]**\n\n" + new_text
-                            validation_debug_logs.append(f"✨ [교정 완료] 문제 {q_num}번이 성공적으로 재작성되어 배정되었습니다.")
-                        
-                        except Exception as e:
-                            validation_debug_logs.append(f"🔺 [통신 실패] 문제 {q_num_str}번 재생성 중 API 오류 발생: {e}")
+                            if original_text:
+                                failed_items.append({
+                                    "q_num": q_num,
+                                    "fail_reason": fail_reason,
+                                    "original_text": original_text
+                                })
+                        except Exception:
+                            pass
                     else:
                         validation_debug_logs.append(f"✅ [통과] 문제 {q_num_str}번 문항은 무결성 검수 결과 이상이 없습니다.")
+                
+                # 🚀 바구니에 담긴 실패 문항이 있다면 단 1회의 통합 재생성 콜(Call 3) 전송
+                if failed_items:
+                    q_nums_str = ", ".join([str(item["q_num"]) for item in failed_items])
+                    validation_debug_logs.append(f"🔄 [통합 교정 시작] 문제 {q_nums_str}번 반려 확인 -> 1회 통합 재생성 요청")
+                    progress.progress(1.0, text=f"⚠️ 문제 {q_nums_str} 통합 재생성 중...")
+                    
+                    # 수집된 대상을 기반으로 묶음 프롬프트 조립
+                    retry_prompt = build_batch_retry_prompt(failed_items, point_text)
+                    
+                    try:
+                        if is_google_native:
+                            res = model.generate_content(retry_prompt)
+                            try:
+                                retry_result_text = res.candidates[0].content.parts[-1].text.strip()
+                            except Exception:
+                                retry_result_text = res.text.strip()
+                        else:
+                            response = client.chat.completions.create(
+                                model=selected_model, 
+                                messages=[{"role": "user", "content": retry_prompt}],
+                                temperature=0.5, # 오답 디테일을 정교하게 고치기 위해 온도를 살짝 낮춤
+                                max_tokens=9000
+                            )
+                            retry_result_text = response.choices[0].message.content.strip()
+                        
+                        # 🚀 돌아온 통합 수정본 텍스트를 문제 번호 태그 기준으로 다시 분할하여 원본 바구니 덮어쓰기
+                        retry_splits = re.split(r'(【문제 \d+】)', retry_result_text)
+                        for i in range(1, len(retry_splits), 2):
+                            num_match = re.search(r'\d+', retry_splits[i])
+                            if not num_match: continue
+                            rq_num = int(num_match.group())
+                            
+                            # 매칭되는 원본의 실패 사유 추출
+                            f_reason = next((item["fail_reason"] for item in failed_items if item["q_num"] == rq_num), "검수 기준 미달")
+                            fixed_content = retry_splits[i] + "\n" + retry_splits[i+1].strip()
+                            
+                            # 최종 결과 바구니 갱신
+                            all_generated_dict[rq_num] = f"🚨 **[육안 검수 요망: 재생성 문항 (사유: {f_reason})]**\n\n" + fixed_content
+                            validation_debug_logs.append(f"✨ [교정 완료] 문제 {rq_num}번 문항의 통합 재작성이 완료되어 반영되었습니다.")
+                            
+                    except Exception as e:
+                        validation_debug_logs.append(f"🔺 [통합 재생성 실패] API 통신 또는 파싱 오류 발생: {e}")
+                        st.error(f"⚠️ 문제 {q_nums_str}번 통합 재생성 중 예외 발생: {e}")
+
+            # ── 3. 최종 후처리 및 UI 파싱 준비 ── (이하 동일)
 
             # ── 3. 최종 후처리 및 UI 파싱 준비 ──
             progress.progress(1.0, text="✅ 최종 렌더링 준비 중...")
