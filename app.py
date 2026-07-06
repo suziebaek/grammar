@@ -623,7 +623,7 @@ with tab1:
         st.session_state.pending = []
         st.rerun()
 
-    # ── 생성 실행 ─────────────────────────────────────────
+# ── 생성 실행 ─────────────────────────────────────────
     if generate_btn:
         total_num = final_high + final_mid + final_low
         safe_api_key = raw_api_key.strip() if raw_api_key else ""
@@ -636,7 +636,7 @@ with tab1:
             st.error("⚠️ 문제 유형을 하나 이상 선택해주세요.")
         else:
             batch_results = []
-            progress = st.progress(0, text="생성 중...")
+            progress = st.progress(0, text="생성 준비 중...")
             total = len(selected_types)
             
             client = None
@@ -655,8 +655,7 @@ with tab1:
             else:
                 client = OpenAI(api_key=safe_api_key)
 
-
-# 🚀 [수정] 레벨별 난이도 배정 메커니즘 분리 (미리 계산된 콤보 사용)
+            # 레벨별 난이도 배정 메커니즘
             EASY_POOL = EASY_COMBS
             MID_POOL = MID_COMBS
             HARD_POOL = HARD_COMBS
@@ -673,14 +672,12 @@ with tab1:
             random.shuffle(TOPIC_LIST)
             topic_index = 0
             
-            # 🚀 [추가] 유형이 바뀌어도 문제 번호가 계속 이어지도록 전역 카운터 설정
+            # 🚀 통합 검증을 위한 전역 변수 설정
             global_q_num = 1 
-            
-            # 🚀 [추가] 통합 검증을 위해 모든 문제를 모아둘 전역 바구니
             all_generated_dict = {}
             all_qtype_map = {} 
 
-            # ── 1. 통합 생성을 위한 1차 루프 (유형별로 돌면서 문제만 빠르게 모음) ──
+            # ── 1. 통합 생성을 위한 1차 루프 ──
             for idx, qtype in enumerate(selected_types):
                 type_diffs = allocations[qtype]
                 if not type_diffs: continue 
@@ -688,24 +685,18 @@ with tab1:
                 num_for_this_type = len(type_diffs)
                 progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {num_for_this_type}문제 생성 중...")
 
-                # 1. 기출 참고 데이터 준비
                 type_matched = [q for q in QUESTIONS if q["t"] == qtype and "지문형" not in q.get("tag", "")]
-                
-                # Send filter pool size to debug panel
                 st.session_state.filter_log = f"Pool size for '{qtype}': {len(type_matched)} surviving questions."
                 
                 unit_matched = [q for q in QUESTIONS if selected_major in q["u"] and "지문형" not in q.get("tag", "")]
-                
                 qtype_pool = type_matched if len(type_matched) >= 3 else (unit_matched if unit_matched else [q for q in QUESTIONS if "지문형" not in q.get("tag", "")])
                 ref_samples = random.sample(qtype_pool, min(4, len(qtype_pool)))
                 ref_text = "\n\n".join([f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}" for i, q in enumerate(ref_samples)])
 
-                # 2. 통합개념 로직
                 integration_rule = ""
                 if len(selected_minors) > 1:
                     integration_rule = f"12. [복합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 복합 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
                 
-                # 3. 난이도 상세 조건 문자열 생성
                 q_assignments = ""
                 for d_dict in type_diffs:
                     lvl = d_dict["level"]
@@ -716,7 +707,6 @@ with tab1:
                     q_assignments += f"【문제 {global_q_num}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점) | 강제 지문 소재: [{topic}]\n"
                     global_q_num += 1
 
-                # 4. 프롬프트 불러오기
                 prompt = build_generation_prompt(
                     ref_text=ref_text,
                     selected_major=selected_major,
@@ -730,15 +720,12 @@ with tab1:
                     integration_rule=integration_rule
                 )
 
-                # 5. 생성 및 딕셔너리 임시 저장
                 try:
                     if is_google_native:
                         model = genai.GenerativeModel(
                             "gemini-3.1-pro-preview",
                             generation_config=genai.types.GenerationConfig(
-                                thinking_config=genai.types.ThinkingConfig(
-                                    thinking_level="high"
-                                )
+                                thinking_config=genai.types.ThinkingConfig(thinking_level="high")
                             )
                         )
                         response = model.generate_content(prompt)
@@ -748,7 +735,6 @@ with tab1:
                             result_text = response.candidates[0].content.parts[-1].text
                         except Exception:
                             result_text = response.text
-                            
                     else:
                         response = client.chat.completions.create(
                             model=selected_model,
@@ -756,16 +742,15 @@ with tab1:
                             temperature=0.75,
                             max_tokens=9000
                         )
-                        print("RAW API RESPONSE:", response)
                         result_text = response.choices[0].message.content
 
                     if result_text:
                         result_text = result_text.replace(r"\_", "_").replace("&nbsp;", " ")
 
                     if result_text is None:
-                        raise Exception("AI가 텍스트 대신 빈 값을 반환했습니다. (안전 필터 차단 또는 서버 일시 오류)")
+                        raise Exception("AI가 텍스트 대신 빈 값을 반환했습니다.")
 
-                    # 🚀 [변경] 검증 없이 문제 번호 기준으로 쪼개서 전역 딕셔너리에 모아두기만 함
+                    # 검증 없이 문제 번호 기준으로 쪼개서 전역 딕셔너리에 모아두기
                     raw_splits = re.split(r'(【문제 \d+】)', result_text)
                     for i in range(1, len(raw_splits), 2):
                         q_num = int(re.search(r'\d+', raw_splits[i]).group())
@@ -775,56 +760,66 @@ with tab1:
                 except Exception as e:
                     st.error(f"{qtype} 유형 생성 중 에러 발생: {e}")
 
-            # ── 2. 통합 검증 및 부분 재생성 루프 (전체 배치를 한 번에 묶어서 검수!) ──
+            # ── 2. 통합 검증 및 부분 재생성 루프 ──
             if use_validator and all_generated_dict:
                 progress.progress(1.0, text="🔎 전체 문항 대상 통합 검수 진행 중...")
                 
-                # 딕셔너리에 모인 모든 문제를 한 덩어리로 병합
                 combined_text = "\n\n".join([all_generated_dict[k] for k in sorted(all_generated_dict.keys())])
                 
-                # 단 1회의 검증 API 호출
+                # 🚀 사용자 선택 검수 모델(val_selected_model) 적용
                 val_results = validate_batch_json(combined_text, point_text, client, is_google_native, val_selected_model)
                 
                 for q_num_str, status in val_results.items():
-                    if status.startswith("F"):
-                        q_num = int(q_num_str)
-                        fail_reason = status.replace("F:", "").strip()
-                        original_text = all_generated_dict.get(q_num, "")
-                        
-                        progress.progress(1.0, text=f"⚠️ 문제 {q_num} 재생성 중... (사유: {fail_reason})")
-                        retry_prompt = build_retry_prompt(original_text, fail_reason, point_text)
-                        
+                    status_str = str(status).strip()
+                    
+                    # 🚀 "F" 또는 "실패"가 포함된 경우 강력하게 매칭
+                    if status_str.startswith("F") or "실패" in status_str:
                         try:
+                            match = re.search(r'\d+', str(q_num_str))
+                            if not match: continue
+                            q_num = int(match.group())
+                            
+                            fail_reason = status_str.replace("F:", "").replace("실패:", "").strip()
+                            original_text = all_generated_dict.get(q_num, "")
+                            if not original_text: continue
+                            
+                            progress.progress(1.0, text=f"⚠️ 문제 {q_num} 재생성 중... (사유: {fail_reason})")
+                            # (주의: prompts.py에 build_retry_prompt가 임포트되어 있어야 합니다)
+                            retry_prompt = build_retry_prompt(original_text, fail_reason, point_text)
+                            
                             if is_google_native:
-                                new_text = model.generate_content(retry_prompt).text.strip()
+                                res = model.generate_content(retry_prompt)
+                                try:
+                                    new_text = res.candidates[0].content.parts[-1].text.strip()
+                                except Exception:
+                                    new_text = res.text.strip()
                             else:
                                 new_text = client.chat.completions.create(
-                                    model=selected_model, 
+                                    model=selected_model, # 재생성은 기존 생성 모델 사용
                                     messages=[{"role": "user", "content": retry_prompt}]
                                 ).choices[0].message.content.strip()
                             
-                            # FAIL 난 문제만 해당 번호 위치에 재생성된 텍스트로 덮어쓰기
                             all_generated_dict[q_num] = f"🚨 **[육안 검수 요망: 재생성 문항 (사유: {fail_reason})]**\n\n" + new_text
+                        
                         except Exception as e:
-                            pass # 재생성 통신 실패 시 원본 유지
+                            st.warning(f"⚠️ 문제 {q_num_str}번 재생성 중 예외 발생: {e}")
 
-            # ── 3. 최종 후처리 및 렌더링 파싱 (META 삭제 및 넘버링 재정렬) ──
-            progress.progress(1.0, text="✅ 최종 렌더링 중...")
+            # ── 3. 최종 후처리 및 UI 파싱 준비 ──
+            progress.progress(1.0, text="✅ 최종 렌더링 준비 중...")
             current_idx = 1
             
             for q_num in sorted(all_generated_dict.keys()):
                 full_text = all_generated_dict[q_num]
-                qtype = all_qtype_map[q_num] # 원래 무슨 유형이었는지 맵에서 꺼내옴
+                qtype = all_qtype_map[q_num] 
                 
-                # META 데이터 삭제 (화면 출력 방지)
+                # META 데이터 삭제
                 full_text = re.sub(r'\[META:.*?\]', '', full_text, flags=re.DOTALL)
                 
-                # 섞이거나 이빨이 빠졌을 수 있는 문제 번호를 1번부터 예쁘게 재정렬
+                # 번호 재정렬
                 full_text = re.sub(r'【문제 \d+】', f'【문제 {current_idx}】', full_text)
                 num_str = str(current_idx)
                 current_idx += 1
                 
-                # (기존 parts 파싱 및 sort_options 로직 완벽히 동일하게 유지)
                 parts = {}
                 tags = ["발문", "보기/지문", "정답", "해설"]
                 for tag in tags:
@@ -852,10 +847,8 @@ with tab1:
                     "is_valid": is_valid, 
                     "feedback": feedback
                 })
-            
-            # 🚀 [여기서부터 중요!] 
-            # 위의 except 블록이 끝난 후, 들여쓰기를 앞으로 당겨서 for 루프와 위치를 맞춥니다.
-# 🚀 [수정] 이전에 제가 실수로 빼먹은 difficulty와 count를 다시 추가합니다.
+
+            # ── 4. 세션 히스토리에 최종 저장 ──
             entry = {
                 "major": selected_major,
                 "mid": selected_mid,
@@ -870,37 +863,31 @@ with tab1:
             
             st.rerun()
 
-            # ⬆️ (기존 코드) 여기까지가 생성 및 저장 완료 부분입니다.
-
-    # 🚀 [복구] 여기서부터가 날아갔던 결과 화면 출력 코드입니다! (붙여넣기)
-    # ── 결과 표시 ─────────────────────────────────────────
+    # ── 결과 표시 및 다운로드 UI ─────────────────────────────────────────
     if st.session_state.pending:
         entry = st.session_state.pending[-1]
         st.markdown("---")
         st.markdown(f"### 📄 생성 결과 — {entry['major']} > {entry['mid']} > {entry['minor']} ({entry.get('difficulty', '')})")
 
-        prev_type = None # 이전 유형 추적용 변수 추가
+        prev_type = None
         for res in entry["results"]:
-            # 🚀 이전 문항과 유형이 다를 때만 대제목 출력
             if res['type'] != prev_type:
                 st.markdown(f"### 🟦 【{res['type']}】 유형")
                 prev_type = res['type']
             
             if not res.get("is_valid", True):
-                st.error(f"⚠️ **검증 실패 사유:** {res.get('feedback')}")
+                st.error(f"⚠️ **{res.get('feedback')}**")
             else:
                 st.success("✅ **검증 통과**")
 
             raw = str(res.get("text", ""))
             
-            # 통신 에러 UI
             if raw.startswith("[통신오류]"):
                 st.error("⚠️ 통신 에러가 발생하여 생성이 중단되었습니다.")
                 st.warning(raw)
                 continue 
+                
             problems = raw.split("【문제")
-            
-            # 🚀 [수정] 들여쓰기 교정
             if len(problems) <= 1:
                 st.warning("⚠️ 양식이 깨졌거나 렌더링 오류가 발생했습니다. 원본을 확인하세요.")
                 st.markdown(raw.replace("\n", "  \n"))
@@ -941,17 +928,9 @@ with tab1:
             if not valid_problem_found:
                 st.markdown(raw.replace("\n", "  \n"))
 
-
-
-# ── 루프 끝 ──
-        
-        # 🚀 [수정] for 루프가 모두 끝난 뒤 '단 한 번만' 실행되도록 들여쓰기를 맞춥니다.
         st.markdown("---")
         set_text = f"[{entry['major']} > {entry['mid']} > {entry['minor']}] {entry.get('difficulty', '')}\n\n"
-# 기존: set_text += "\n\n".join(f"【{r['type']}】\n\n{r.get('text', '')}" for r in entry["results"])
         
-        # 🚀 이렇게 교체 (유형별 제목은 남기고, 문제 내용은 괄호 없는 버전으로)
-        set_text = f"[{entry['major']} > {entry['mid']} > {entry['minor']}] {entry.get('difficulty', '')}\n\n"
         prev_dl_type = None
         for r in entry["results"]:
             if r['type'] != prev_dl_type:
@@ -959,13 +938,12 @@ with tab1:
                 prev_dl_type = r['type']
             set_text += f"{r.get('dl_text', r['text'])}\n\n"
             
-        # 날짜, 모델명 파싱 및 파일명 조합
         now_str = datetime.now().strftime("%y%m%d")
         safe_model = selected_model.split('/')[-1] 
         f_name = f"{entry['major']}_{entry['mid']}_{now_str}_{safe_model}"
     
         dl_col1, dl_col2 = st.columns(2)
-        unique_key = len(st.session_state.history)  # 중복 방지를 위한 고유 번호
+        unique_key = len(st.session_state.history) 
         
         with dl_col1:
             st.download_button(
@@ -974,7 +952,7 @@ with tab1:
                 file_name=f"{f_name}.txt",
                 mime="text/plain",
                 use_container_width=True,
-                key=f"dl_current_txt_{unique_key}"  # 중복 에러 완벽 차단
+                key=f"dl_current_txt_{unique_key}" 
             )
         with dl_col2:
             st.download_button(
@@ -983,7 +961,7 @@ with tab1:
                 file_name=f"{f_name}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 use_container_width=True,
-                key=f"dl_current_docx_{unique_key}" # 중복 에러 완벽 차단
+                key=f"dl_current_docx_{unique_key}"
             )
 # ════════════════════════════════════════════════════════
 # TAB 2 : 기출 문제 탐색
