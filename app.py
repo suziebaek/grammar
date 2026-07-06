@@ -299,6 +299,7 @@ with st.sidebar:
         "🤖 출제 인공지능 엔진 모델",
         options=["anthropic/claude-sonnet-4.6", "anthropic/claude-opus-4.8", "openai/gpt-5.5", "openai/gpt-5.1", "google/gemini-3.1-pro-preview", "google/gemini-2.5-flash-lite"]
     )
+    val_selected_model = st.selectbox("🔎 검수용 AI 모델", =["anthropic/claude-sonnet-4.6", "anthropic/claude-opus-4.8", "openai/gpt-5.5", "openai/gpt-5.1", "google/gemini-3.1-pro-preview", "google/gemini-2.5-flash-lite", "google/gemini-2.5-pro"], help="전체 문항을 1회 검증할 때 사용할 모델을 선택합니다.")
     
     detected_platform = "대기 중..."
     if raw_api_key:
@@ -782,7 +783,7 @@ with tab1:
                 combined_text = "\n\n".join([all_generated_dict[k] for k in sorted(all_generated_dict.keys())])
                 
                 # 단 1회의 검증 API 호출
-                val_results = validate_batch_json(combined_text, point_text, client, is_google_native, selected_model)
+                val_results = validate_batch_json(combined_text, point_text, client, is_google_native, val_selected_model)
                 
                 for q_num_str, status in val_results.items():
                     if status.startswith("F"):
