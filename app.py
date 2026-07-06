@@ -161,15 +161,15 @@ def sort_options(passage_text, ans_text, exp_text):
         
     return passage + new_opts_str.strip(), new_ans, new_exp_text
 
-# 🚀 [추가] 2단계 JSON 초경량 검증기 함수
-def validate_batch_json(full_text, client, is_google_native, target_model):
+# 🚀 [수정됨] 모델 변수를 동적으로 받고 구글 네이티브 에러를 해결한 버전
+def validate_batch_json(full_text, point_text, client, is_google_native, target_model):
     val_prompt = f"""당신은 엄격한 영어 문항 검수 위원입니다.
 생성된 [문제 세트]가 아래 [체크리스트]를 만족하는지 검증하세요.
 
 [체크리스트]
 1. 난이도 조건: [META: ...] 태그의 난이도 배정 조건이 실제 설계에 반영되었는가?
-2. 정답 무결성: 복수 정답의 여지가 1%라도 있거나, 해설과 정답 번호가 논리적으로 모순되지 않는가?
-3. 시각적 포맷팅: 보기 선지의 글자 수가 15~17자 내외로 시각적 균형을 이루고 있는가?
+2. 정답 무결성: ①보기 개수와 정답 번호가 일치하는지, ②정답 번호와 해설에서 설명하는 내용이 정확히 일치하는지, ③실제 선지 내용과 해설의 내용이 일치하는지? ④오답 검증 시, 반드시 [역할 B]에 제공된 '핵심 출제 포인트'를 다시 읽고(Reference), 해당 오답이 DB에 명시된 '대체 가능한 형태'나 '예외 규칙'에 해당하지 않는지 검증.
+
 
 [문제 세트]
 {full_text}
@@ -181,16 +181,24 @@ def validate_batch_json(full_text, client, is_google_native, target_model):
 """
     try:
         if is_google_native:
-            response = client.generate_content(val_prompt)
+            import google.generativeai as genai
+            # OpenRouter용 이름(google/gemini-...)에서 앞부분을 떼고 순수 모델명만 추출
+            clean_model = target_model.replace("google/", "") if "google/" in target_model else target_model
+            model = genai.GenerativeModel(clean_model)
+            response = model.generate_content(val_prompt)
             raw = response.text.strip()
         else:
             response = client.chat.completions.create(
-                model=target_model, messages=[{"role": "user", "content": val_prompt}],
-                temperature=0.0, response_format={"type": "json_object"}
+                model=target_model, 
+                messages=[{"role": "user", "content": val_prompt}],
+                temperature=0.0, 
+                response_format={"type": "json_object"}
             )
             raw = response.choices[0].message.content.strip()
+            
         return json.loads(raw.replace("```json", "").replace("```", "").strip())
-    except:
+    except Exception as e:
+        print(f"검증기 에러: {e}")
         return {}
         
 
@@ -768,7 +776,7 @@ with tab1:
                     # 🚀 1. 검증 및 부분 재생성 가로채기 루프 (Interceptor)
                     if use_validator:
                         st.write("DEBUG: 🔎 JSON 검증 및 부분 재생성 시작...")
-                        val_results = validate_batch_json(result_text, client, is_google_native, "gemini-3.1-pro-preview")
+                        val_results = validate_batch_json(result_text, point_text, client, is_google_native, "google/gemini-3.1-pro-preview")
                         
                         # 텍스트를 문제 번호 단위로 임시 딕셔너리에 분리
                         q_dict = {}
