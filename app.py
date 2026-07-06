@@ -179,7 +179,7 @@ def validate_batch_json(full_text, point_text, client, is_google_native, target_
 - 통과 = "P", 실패 = "F: [사유]"
 - 예: {{"1": "P", "2": "F: 보기 시각적 균형 위반"}}
 """
-try:
+    try:
         if is_google_native:
             import google.generativeai as genai
             clean_model = target_model.replace("google/", "") if "google/" in target_model else target_model
