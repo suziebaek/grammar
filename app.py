@@ -179,10 +179,9 @@ def validate_batch_json(full_text, point_text, client, is_google_native, target_
 - 통과 = "P", 실패 = "F: [사유]"
 - 예: {{"1": "P", "2": "F: 보기 시각적 균형 위반"}}
 """
-    try:
+try:
         if is_google_native:
             import google.generativeai as genai
-            # OpenRouter용 이름(google/gemini-...)에서 앞부분을 떼고 순수 모델명만 추출
             clean_model = target_model.replace("google/", "") if "google/" in target_model else target_model
             model = genai.GenerativeModel(clean_model)
             response = model.generate_content(val_prompt)
@@ -196,9 +195,17 @@ def validate_batch_json(full_text, point_text, client, is_google_native, target_
             )
             raw = response.choices[0].message.content.strip()
             
-        return json.loads(raw.replace("```json", "").replace("```", "").strip())
+        # 🚀 헛소리가 섞여도 중괄호 {} 사이의 순수 JSON만 강제로 뽑아내는 로직
+        import re
+        json_match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if json_match:
+            return json.loads(json_match.group(0))
+        else:
+            st.error(f"⚠️ 검증기 JSON 추출 실패 (AI가 양식을 어겼습니다). 원본 응답:\n{raw}")
+            return {}
+            
     except Exception as e:
-        print(f"검증기 에러: {e}")
+        st.error(f"⚠️ 검증 함수 내부 에러 발생: {e}")
         return {}
         
 
