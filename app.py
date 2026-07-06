@@ -767,31 +767,36 @@ with tab1:
                 except Exception as e:
                     st.error(f"{qtype} 유형 생성 중 에러 발생: {e}")
 
-            # ── 2. 통합 검증 및 부분 재생성 루프 ──
+# ── 2. 통합 검증 및 부분 재생성 루프 ──
             if use_validator and all_generated_dict:
                 progress.progress(1.0, text="🔎 전체 문항 대상 통합 검수 진행 중...")
-                
                 combined_text = "\n\n".join([all_generated_dict[k] for k in sorted(all_generated_dict.keys())])
                 
-                # 🚀 사용자 선택 검수 모델(val_selected_model) 적용
                 val_results = validate_batch_json(combined_text, point_text, client, is_google_native, val_selected_model)
+                
+                # 🚀 화면에 검수 결과표(딕셔너리)를 강제로 띄워 실제로 어떻게 인식했는지 확인합니다.
+                st.info(f"📋 [시스템 디버그] 검수 AI 파싱 결과표:\n{val_results}")
                 
                 for q_num_str, status in val_results.items():
                     status_str = str(status).strip()
                     
-                    # 🚀 "F" 또는 "실패"가 포함된 경우 강력하게 매칭
                     if status_str.startswith("F") or "실패" in status_str:
                         try:
                             match = re.search(r'\d+', str(q_num_str))
-                            if not match: continue
-                            q_num = int(match.group())
+                            if not match: 
+                                st.warning(f"⚠️ 문제 번호를 숫자로 인식할 수 없어 건너뜁니다: {q_num_str}")
+                                continue
                             
+                            q_num = int(match.group())
                             fail_reason = status_str.replace("F:", "").replace("실패:", "").strip()
                             original_text = all_generated_dict.get(q_num, "")
-                            if not original_text: continue
+                            
+                            # 🚀 원본을 못 찾았을 때 조용히 넘기지 않고 빨간 경고를 띄웁니다!
+                            if not original_text: 
+                                st.error(f"⚠️ {q_num}번 문항의 원본을 찾을 수 없어 재생성할 수 없습니다. (생성 AI가 '【문제 {q_num}】' 양식을 파괴했습니다.)")
+                                continue
                             
                             progress.progress(1.0, text=f"⚠️ 문제 {q_num} 재생성 중... (사유: {fail_reason})")
-                            # (주의: prompts.py에 build_retry_prompt가 임포트되어 있어야 합니다)
                             retry_prompt = build_retry_prompt(original_text, fail_reason, point_text)
                             
                             if is_google_native:
@@ -802,14 +807,17 @@ with tab1:
                                     new_text = res.text.strip()
                             else:
                                 new_text = client.chat.completions.create(
-                                    model=selected_model, # 재생성은 기존 생성 모델 사용
+                                    model=selected_model, 
                                     messages=[{"role": "user", "content": retry_prompt}]
                                 ).choices[0].message.content.strip()
                             
                             all_generated_dict[q_num] = f"🚨 **[육안 검수 요망: 재생성 문항 (사유: {fail_reason})]**\n\n" + new_text
                         
                         except Exception as e:
-                            st.warning(f"⚠️ 문제 {q_num_str}번 재생성 중 예외 발생: {e}")
+                            # 🚀 API 통신 실패 시에도 확실하게 경고를 띄웁니다.
+                            st.error(f"⚠️ 문제 {q_num_str}번 재생성 API 호출 중 통신 에러 발생: {e}")
+
+            # ── 3. 최종 후처리 및 UI 파싱 준비 ── (이하 동일)
 
             # ── 3. 최종 후처리 및 UI 파싱 준비 ──
             progress.progress(1.0, text="✅ 최종 렌더링 준비 중...")
