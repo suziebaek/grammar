@@ -674,8 +674,12 @@ with tab1:
             
             # 🚀 [추가] 유형이 바뀌어도 문제 번호가 계속 이어지도록 전역 카운터 설정
             global_q_num = 1 
+            
+            # 🚀 [추가] 통합 검증을 위해 모든 문제를 모아둘 전역 바구니
+            all_generated_dict = {}
+            all_qtype_map = {} 
 
-            # 🚀 루프: 선택한 문제 유형별로 순회
+            # ── 1. 통합 생성을 위한 1차 루프 (유형별로 돌면서 문제만 빠르게 모음) ──
             for idx, qtype in enumerate(selected_types):
                 type_diffs = allocations[qtype]
                 if not type_diffs: continue 
@@ -684,12 +688,11 @@ with tab1:
                 progress.progress((idx) / total, text=f"[{idx+1}/{total}] '{qtype}' 유형 {num_for_this_type}문제 생성 중...")
 
                 # 1. 기출 참고 데이터 준비
-# 🚀 조건문에 '지문형' 태그가 없는 문제만 걸러내는 로직 추가
                 type_matched = [q for q in QUESTIONS if q["t"] == qtype and "지문형" not in q.get("tag", "")]
                 
                 # Send filter pool size to debug panel
                 st.session_state.filter_log = f"Pool size for '{qtype}': {len(type_matched)} surviving questions."
- 
+                
                 unit_matched = [q for q in QUESTIONS if selected_major in q["u"] and "지문형" not in q.get("tag", "")]
                 
                 qtype_pool = type_matched if len(type_matched) >= 3 else (unit_matched if unit_matched else [q for q in QUESTIONS if "지문형" not in q.get("tag", "")])
@@ -701,7 +704,7 @@ with tab1:
                 if len(selected_minors) > 1:
                     integration_rule = f"12. [복합 출제 지시 (필수)]: 이번 세트는 여러 소분류 개념이 합쳐진 복합 테스트입니다. [역할 B]에 제시된 출제 포인트들을 반드시 골고루 활용하여 절대 특정 개념에만 편중되지 않도록 창작하세요.\n"
                 
-                # 3. 난이도 상세 조건 문자열 생성 (소재 강제 주입 및 🚀연속 번호 적용)
+                # 3. 난이도 상세 조건 문자열 생성
                 q_assignments = ""
                 for d_dict in type_diffs:
                     lvl = d_dict["level"]
@@ -709,11 +712,10 @@ with tab1:
                     topic = TOPIC_LIST[topic_index % len(TOPIC_LIST)]
                     topic_index += 1                    
                     
-                    # 🚀 [수정] i+1 대신 global_q_num을 사용하여 번호 누적
                     q_assignments += f"【문제 {global_q_num}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점) | 강제 지문 소재: [{topic}]\n"
                     global_q_num += 1
 
-                # 4. 분리된 파일에서 프롬프트 불러오기
+                # 4. 프롬프트 불러오기
                 prompt = build_generation_prompt(
                     ref_text=ref_text,
                     selected_major=selected_major,
@@ -727,10 +729,9 @@ with tab1:
                     integration_rule=integration_rule
                 )
 
-# 5. 생성 및 배치 검증
+                # 5. 생성 및 딕셔너리 임시 저장
                 try:
                     if is_google_native:
-                        # 🚀 Thinking 옵션은 그대로 유지합니다 (토큰 폭주 방지)
                         model = genai.GenerativeModel(
                             "gemini-3.1-pro-preview",
                             generation_config=genai.types.GenerationConfig(
@@ -740,15 +741,11 @@ with tab1:
                             )
                         )
                         response = model.generate_content(prompt)
-                        # Send raw JSON dict to debug panel instead of terminal
                         st.session_state.raw_api_log = response.model_dump()
                         
-                        # 🚀 [수정] 전체 텍스트를 통째로 가져오지 않고, '마지막 최종 답변 파트'만 추출합니다.
                         try:
-                            # 응답 파트들(parts) 중 맨 마지막(-1) 텍스트만 꺼내옴
                             result_text = response.candidates[0].content.parts[-1].text
                         except Exception:
-                            # 구조가 다를 경우를 대비한 안전망 (폴백)
                             result_text = response.text
                             
                     else:
@@ -758,126 +755,102 @@ with tab1:
                             temperature=0.75,
                             max_tokens=9000
                         )
-
                         print("RAW API RESPONSE:", response)
-                        
                         result_text = response.choices[0].message.content
 
-                    # ... (이후 결과 쪼개기 및 검증 루프 동일) ...
-# 🚀 [추가] 마크다운 이스케이프 및 HTML 공백 강제 세탁
                     if result_text:
                         result_text = result_text.replace(r"\_", "_").replace("&nbsp;", " ")
 
-                    # 🚀 [핵심 방어 코드] AI 응답이 None(빈 값)으로 올 경우 에러를 강제로 발생시켜 안전하게 예외 처리함
                     if result_text is None:
                         raise Exception("AI가 텍스트 대신 빈 값을 반환했습니다. (안전 필터 차단 또는 서버 일시 오류)")
 
-# ⬇️ [새로 붙여넣을 코드 시작] ⬇️
-                    # 🚀 1. 검증 및 부분 재생성 가로채기 루프 (Interceptor)
-                    if use_validator:
-                        st.write("DEBUG: 🔎 JSON 검증 및 부분 재생성 시작...")
-                        val_results = validate_batch_json(result_text, point_text, client, is_google_native, "google/gemini-3.1-pro-preview")
-                        
-                        # 텍스트를 문제 번호 단위로 임시 딕셔너리에 분리
-                        q_dict = {}
-                        raw_splits = re.split(r'(【문제 \d+】)', result_text)
-                        for i in range(1, len(raw_splits), 2):
-                            q_num = int(re.search(r'\d+', raw_splits[i]).group())
-                            q_dict[q_num] = raw_splits[i] + "\n" + raw_splits[i+1].strip()
-
-# FAIL 문항만 재생성 호출 (Call 3)
-                        for q_num_str, status in val_results.items():
-                            if status.startswith("F"):
-                                q_num = int(q_num_str)
-                                fail_reason = status.replace("F:", "").strip()
-                                original_text = q_dict.get(q_num, "")
-                                
-                                st.write(f"DEBUG: ⚠️ 문제 {q_num} 재생성 중... (사유: {fail_reason})")
-                                
-                                # 🚀 무거운 기존 함수 대신, 가볍고 날카로운 전용 함수 호출!
-                                retry_prompt = build_retry_prompt(original_text, fail_reason, point_text)
-                                
-                                try:
-                                    if is_google_native:
-                                        new_text = model.generate_content(retry_prompt).text.strip()
-                                    else:
-                                        new_text = client.chat.completions.create(
-                                            model=selected_model, 
-                                            messages=[{"role": "user", "content": retry_prompt}]
-                                        ).choices[0].message.content.strip()
-                                    
-                                    q_dict[q_num] = f"🚨 **[육안 검수 요망: 재생성 문항 (사유: {fail_reason})]**\n\n" + new_text
-                                except Exception as e:
-                                    pass
-                        
-                        # 딕셔너리를 다시 하나의 텍스트로 병합
-                        result_text = "\n\n".join([q_dict[k] for k in sorted(q_dict.keys())])
-                        st.write("DEBUG: ✅ 재생성 및 병합 완료.")
-
-                    # 🚀 2. 후처리 클리닝 (META 태그 삭제 및 넘버링 재정렬)
-                    result_text = re.sub(r'\[META:.*?\]', '', result_text, flags=re.DOTALL)
-                    new_splits = re.split(r'(【문제 \d+】)', result_text)
-                    current_idx = 1
-                    for i in range(1, len(new_splits), 2):
-                        new_splits[i] = f"【문제 {current_idx}】"
-                        current_idx += 1
-                    result_text = "".join(new_splits)
-
-                    # 🚀 3. 기존의 렌더링 파이프라인으로 안전하게 넘겨주기
-                    problems = result_text.split("【문제")
-                    batch_feedback = {} # UI에서 에러가 나지 않도록 빈 딕셔너리 강제 할당
-# ⬆️ [새로 붙여넣을 코드 끝] ⬆️
-                    
-                    for i, prob_text in enumerate(problems[1:]):
-                        prob_text = prob_text.strip()
-                        if not prob_text: continue
-                        full_text = "【문제" + prob_text
-                        is_valid, feedback = batch_feedback.get(i+1, (True, "PASS"))
-                        
-                        # 🚀 [추가] 다운로드 파일에도 적용되도록 '데이터 자체'를 영구 정렬
-                        parts = {}
-                        tags = ["발문", "보기/지문", "정답", "해설"]
-                        for tag in tags:
-                            key = f"[{tag}]"
-                            if key in full_text:
-                                start = full_text.index(key) + len(key)
-                                nexts = [f"[{t}]" for t in tags if f"[{t}]" in full_text[start:]]
-                                end = full_text.index(nexts[0], start) if nexts else len(full_text)
-                                parts[tag] = full_text[start:end].replace("---", "").strip()
-                        
-                        if "보기/지문" in parts and "정답" in parts and "해설" in parts:
-                            new_passage, new_ans, new_exp = sort_options(parts["보기/지문"], parts["정답"], parts["해설"])
-                            
-                            # 문제 번호만 안전하게 추출
-                            num_match = re.search(r'^(.*?)\n', prob_text)
-                            num_str = num_match.group(1).replace('】', '').strip() if num_match else f"{i+1}"
-                            
-                            # 1. 화면 UI 표시용 (기존 유지: 파싱을 위해 괄호 필요)
-                            full_text = f"【문제 {num_str}】\n[발문]\n{parts.get('발문', '')}\n\n[보기/지문]\n{new_passage}\n\n[정답]\n{new_ans}\n\n[해설]\n{new_exp}\n"
-                            
-                            # 🚀 2. 다운로드용 텍스트 (브라켓 모두 제거 & 문제와 발문 한 줄 결합)
-                            # 예: "문제4. 빈칸에 들어갈 말로 적절한 것은?"
-                            dl_text = f"{num_str}. {parts.get('발문', '').strip()}\n\n{new_passage.strip()}\n\n정답: {new_ans.strip()}\n해설: {new_exp.strip()}\n"
-                        else:
-                            # 안전망: 파싱 실패 시 원본에서 괄호만 강제 제거
-                            full_text = "【문제" + prob_text
-                            dl_text = full_text.replace("【", "").replace("】", ".").replace("[발문]\n", "").replace("[보기/지문]\n", "").replace("[정답]", "정답:").replace("[해설]", "해설:")
-
-                        batch_results.append({
-                            "type": qtype, 
-                            "text": full_text, 
-                            "dl_text": dl_text, # 👈 다운로드 전용 텍스트 추가
-                            "is_valid": is_valid, 
-                            "feedback": feedback
-                        })
-
+                    # 🚀 [변경] 검증 없이 문제 번호 기준으로 쪼개서 전역 딕셔너리에 모아두기만 함
+                    raw_splits = re.split(r'(【문제 \d+】)', result_text)
+                    for i in range(1, len(raw_splits), 2):
+                        q_num = int(re.search(r'\d+', raw_splits[i]).group())
+                        all_generated_dict[q_num] = raw_splits[i] + "\n" + raw_splits[i+1].strip()
+                        all_qtype_map[q_num] = qtype
+                
                 except Exception as e:
-                    batch_results.append({
-                        "type": qtype, 
-                        "text": f"[통신오류] {str(e)}", 
-                        "is_valid": False, 
-                        "feedback": "통신 실패"
-                    })
+                    st.error(f"{qtype} 유형 생성 중 에러 발생: {e}")
+
+            # ── 2. 통합 검증 및 부분 재생성 루프 (전체 배치를 한 번에 묶어서 검수!) ──
+            if use_validator and all_generated_dict:
+                progress.progress(1.0, text="🔎 전체 문항 대상 통합 검수 진행 중...")
+                
+                # 딕셔너리에 모인 모든 문제를 한 덩어리로 병합
+                combined_text = "\n\n".join([all_generated_dict[k] for k in sorted(all_generated_dict.keys())])
+                
+                # 단 1회의 검증 API 호출
+                val_results = validate_batch_json(combined_text, point_text, client, is_google_native, selected_model)
+                
+                for q_num_str, status in val_results.items():
+                    if status.startswith("F"):
+                        q_num = int(q_num_str)
+                        fail_reason = status.replace("F:", "").strip()
+                        original_text = all_generated_dict.get(q_num, "")
+                        
+                        progress.progress(1.0, text=f"⚠️ 문제 {q_num} 재생성 중... (사유: {fail_reason})")
+                        retry_prompt = build_retry_prompt(original_text, fail_reason, point_text)
+                        
+                        try:
+                            if is_google_native:
+                                new_text = model.generate_content(retry_prompt).text.strip()
+                            else:
+                                new_text = client.chat.completions.create(
+                                    model=selected_model, 
+                                    messages=[{"role": "user", "content": retry_prompt}]
+                                ).choices[0].message.content.strip()
+                            
+                            # FAIL 난 문제만 해당 번호 위치에 재생성된 텍스트로 덮어쓰기
+                            all_generated_dict[q_num] = f"🚨 **[육안 검수 요망: 재생성 문항 (사유: {fail_reason})]**\n\n" + new_text
+                        except Exception as e:
+                            pass # 재생성 통신 실패 시 원본 유지
+
+            # ── 3. 최종 후처리 및 렌더링 파싱 (META 삭제 및 넘버링 재정렬) ──
+            progress.progress(1.0, text="✅ 최종 렌더링 중...")
+            current_idx = 1
+            
+            for q_num in sorted(all_generated_dict.keys()):
+                full_text = all_generated_dict[q_num]
+                qtype = all_qtype_map[q_num] # 원래 무슨 유형이었는지 맵에서 꺼내옴
+                
+                # META 데이터 삭제 (화면 출력 방지)
+                full_text = re.sub(r'\[META:.*?\]', '', full_text, flags=re.DOTALL)
+                
+                # 섞이거나 이빨이 빠졌을 수 있는 문제 번호를 1번부터 예쁘게 재정렬
+                full_text = re.sub(r'【문제 \d+】', f'【문제 {current_idx}】', full_text)
+                num_str = str(current_idx)
+                current_idx += 1
+                
+                # (기존 parts 파싱 및 sort_options 로직 완벽히 동일하게 유지)
+                parts = {}
+                tags = ["발문", "보기/지문", "정답", "해설"]
+                for tag in tags:
+                    key = f"[{tag}]"
+                    if key in full_text:
+                        start = full_text.index(key) + len(key)
+                        nexts = [f"[{t}]" for t in tags if f"[{t}]" in full_text[start:]]
+                        end = full_text.index(nexts[0], start) if nexts else len(full_text)
+                        parts[tag] = full_text[start:end].replace("---", "").strip()
+
+                if "보기/지문" in parts and "정답" in parts and "해설" in parts:
+                    new_passage, new_ans, new_exp = sort_options(parts["보기/지문"], parts["정답"], parts["해설"])
+                    dl_text = f"{num_str}. {parts.get('발문', '').strip()}\n\n{new_passage.strip()}\n\n정답: {new_ans.strip()}\n해설: {new_exp.strip()}\n"
+                    full_text = f"【문제 {num_str}】\n[발문]\n{parts.get('발문', '')}\n\n[보기/지문]\n{new_passage}\n\n[정답]\n{new_ans}\n\n[해설]\n{new_exp}\n"
+                else:
+                    dl_text = full_text.replace("【", "").replace("】", ".").replace("[발문]\n", "").replace("[보기/지문]\n", "").replace("[정답]", "정답:").replace("[해설]", "해설:")
+
+                is_valid = "🚨" not in full_text
+                feedback = "검수 통과" if is_valid else "부분 재생성됨 (육안 확인 요망)"
+
+                batch_results.append({
+                    "type": qtype, 
+                    "text": full_text, 
+                    "dl_text": dl_text,
+                    "is_valid": is_valid, 
+                    "feedback": feedback
+                })
             
             # 🚀 [여기서부터 중요!] 
             # 위의 except 블록이 끝난 후, 들여쓰기를 앞으로 당겨서 for 루프와 위치를 맞춥니다.
