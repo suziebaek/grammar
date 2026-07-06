@@ -646,6 +646,9 @@ with tab1:
             progress = st.progress(0, text="생성 준비 중...")
             total = len(selected_types)
             
+            # 🚀 [추가] 실시간 검수 로그를 저장할 독립 바구니 생성
+            validation_debug_logs = []
+            
             client = None
             is_google_native = False
             
@@ -679,7 +682,6 @@ with tab1:
             random.shuffle(TOPIC_LIST)
             topic_index = 0
             
-            # 🚀 통합 검증을 위한 전역 변수 설정
             global_q_num = 1 
             all_generated_dict = {}
             all_qtype_map = {} 
@@ -715,15 +717,9 @@ with tab1:
                     global_q_num += 1
 
                 prompt = build_generation_prompt(
-                    ref_text=ref_text,
-                    selected_major=selected_major,
-                    selected_mid=selected_mid,
-                    selected_minor_label=selected_minor_label,
-                    point_text=point_text,
-                    qtype=qtype,
-                    num_for_this_type=num_for_this_type,
-                    extra=extra,
-                    q_assignments=q_assignments,
+                    ref_text=ref_text, selected_major=selected_major, selected_mid=selected_mid,
+                    selected_minor_label=selected_minor_label, point_text=point_text, qtype=qtype,
+                    num_for_this_type=num_for_this_type, extra=extra, q_assignments=q_assignments,
                     integration_rule=integration_rule
                 )
 
@@ -737,27 +733,22 @@ with tab1:
                         )
                         response = model.generate_content(prompt)
                         st.session_state.raw_api_log = response.model_dump()
-                        
                         try:
                             result_text = response.candidates[0].content.parts[-1].text
                         except Exception:
                             result_text = response.text
                     else:
                         response = client.chat.completions.create(
-                            model=selected_model,
-                            messages=[{"role": "user", "content": prompt}],
-                            temperature=0.75,
-                            max_tokens=9000
+                            model=selected_model, messages=[{"role": "user", "content": prompt}],
+                            temperature=0.75, max_tokens=9000
                         )
                         result_text = response.choices[0].message.content
 
                     if result_text:
                         result_text = result_text.replace(r"\_", "_").replace("&nbsp;", " ")
-
                     if result_text is None:
                         raise Exception("AI가 텍스트 대신 빈 값을 반환했습니다.")
 
-                    # 검증 없이 문제 번호 기준으로 쪼개서 전역 딕셔너리에 모아두기
                     raw_splits = re.split(r'(【문제 \d+】)', result_text)
                     for i in range(1, len(raw_splits), 2):
                         q_num = int(re.search(r'\d+', raw_splits[i]).group())
@@ -767,15 +758,15 @@ with tab1:
                 except Exception as e:
                     st.error(f"{qtype} 유형 생성 중 에러 발생: {e}")
 
-# ── 2. 통합 검증 및 부분 재생성 루프 ──
+            # ── 2. 통합 검증 및 부분 재생성 루프 ──
             if use_validator and all_generated_dict:
                 progress.progress(1.0, text="🔎 전체 문항 대상 통합 검수 진행 중...")
                 combined_text = "\n\n".join([all_generated_dict[k] for k in sorted(all_generated_dict.keys())])
                 
                 val_results = validate_batch_json(combined_text, point_text, client, is_google_native, val_selected_model)
                 
-                # 🚀 화면에 검수 결과표(딕셔너리)를 강제로 띄워 실제로 어떻게 인식했는지 확인합니다.
-                st.info(f"📋 [시스템 디버그] 검수 AI 파싱 결과표:\n{val_results}")
+                # 🚀 로그 바구니에 수신 데이터 저장
+                validation_debug_logs.append(f"📋 [시스템] 검수 AI가 보낸 원본 결과표: {val_results}")
                 
                 for q_num_str, status in val_results.items():
                     status_str = str(status).strip()
@@ -784,18 +775,18 @@ with tab1:
                         try:
                             match = re.search(r'\d+', str(q_num_str))
                             if not match: 
-                                st.warning(f"⚠️ 문제 번호를 숫자로 인식할 수 없어 건너뜁니다: {q_num_str}")
+                                validation_debug_logs.append(f"⚠️ 경고: 키값('{q_num_str}')에서 숫자를 추출하지 못했습니다.")
                                 continue
                             
                             q_num = int(match.group())
                             fail_reason = status_str.replace("F:", "").replace("실패:", "").strip()
                             original_text = all_generated_dict.get(q_num, "")
                             
-                            # 🚀 원본을 못 찾았을 때 조용히 넘기지 않고 빨간 경고를 띄웁니다!
                             if not original_text: 
-                                st.error(f"⚠️ {q_num}번 문항의 원본을 찾을 수 없어 재생성할 수 없습니다. (생성 AI가 '【문제 {q_num}】' 양식을 파괴했습니다.)")
+                                validation_debug_logs.append(f"❌ 오류: 【문제 {q_num}】번의 원본을 찾을 수 없어 패스합니다.")
                                 continue
                             
+                            validation_debug_logs.append(f"🔄 [교정 시작] 문제 {q_num}번 반려 감지 -> 사유: {fail_reason}")
                             progress.progress(1.0, text=f"⚠️ 문제 {q_num} 재생성 중... (사유: {fail_reason})")
                             retry_prompt = build_retry_prompt(original_text, fail_reason, point_text)
                             
@@ -807,17 +798,16 @@ with tab1:
                                     new_text = res.text.strip()
                             else:
                                 new_text = client.chat.completions.create(
-                                    model=selected_model, 
-                                    messages=[{"role": "user", "content": retry_prompt}]
+                                    model=selected_model, messages=[{"role": "user", "content": retry_prompt}]
                                 ).choices[0].message.content.strip()
                             
                             all_generated_dict[q_num] = f"🚨 **[육안 검수 요망: 재생성 문항 (사유: {fail_reason})]**\n\n" + new_text
+                            validation_debug_logs.append(f"✨ [교정 완료] 문제 {q_num}번이 성공적으로 재작성되어 배정되었습니다.")
                         
                         except Exception as e:
-                            # 🚀 API 통신 실패 시에도 확실하게 경고를 띄웁니다.
-                            st.error(f"⚠️ 문제 {q_num_str}번 재생성 API 호출 중 통신 에러 발생: {e}")
-
-            # ── 3. 최종 후처리 및 UI 파싱 준비 ── (이하 동일)
+                            validation_debug_logs.append(f"🔺 [통신 실패] 문제 {q_num_str}번 재생성 중 API 오류 발생: {e}")
+                    else:
+                        validation_debug_logs.append(f"✅ [통과] 문제 {q_num_str}번 문항은 무결성 검수 결과 이상이 없습니다.")
 
             # ── 3. 최종 후처리 및 UI 파싱 준비 ──
             progress.progress(1.0, text="✅ 최종 렌더링 준비 중...")
@@ -827,10 +817,7 @@ with tab1:
                 full_text = all_generated_dict[q_num]
                 qtype = all_qtype_map[q_num] 
                 
-                # META 데이터 삭제
                 full_text = re.sub(r'\[META:.*?\]', '', full_text, flags=re.DOTALL)
-                
-                # 번호 재정렬
                 full_text = re.sub(r'【문제 \d+】', f'【문제 {current_idx}】', full_text)
                 num_str = str(current_idx)
                 current_idx += 1
@@ -856,11 +843,8 @@ with tab1:
                 feedback = "검수 통과" if is_valid else "부분 재생성됨 (육안 확인 요망)"
 
                 batch_results.append({
-                    "type": qtype, 
-                    "text": full_text, 
-                    "dl_text": dl_text,
-                    "is_valid": is_valid, 
-                    "feedback": feedback
+                    "type": qtype, "text": full_text, "dl_text": dl_text,
+                    "is_valid": is_valid, "feedback": feedback
                 })
 
             # ── 4. 세션 히스토리에 최종 저장 ──
@@ -872,17 +856,31 @@ with tab1:
                 "types": selected_types,
                 "count": total_num,
                 "results": batch_results,
+                "val_logs": validation_debug_logs  # 🚀 수집한 실시간 로그를 보따리에 함께 패킹!
             }
             st.session_state.history.append(entry)
             st.session_state.pending = [entry]
             
-            st.rerun()
+            st.rerun()  # 🚀 안심하고 새로고침 실행 (세션에 들어가 있으므로 증발하지 않음)
 
     # ── 결과 표시 및 다운로드 UI ─────────────────────────────────────────
     if st.session_state.pending:
         entry = st.session_state.pending[-1]
         st.markdown("---")
         st.markdown(f"### 📄 생성 결과 — {entry['major']} > {entry['mid']} > {entry['minor']} ({entry.get('difficulty', '')})")
+
+        # 🚀 [핵심 변경] 상단에 독립된 화면 공간을 뚫어 검수 로그 박스를 배치합니다.
+        if "val_logs" in entry and entry["val_logs"]:
+            with st.expander("🔍 AI 문항 실시간 검수 및 자동 교정 로그 (자세히 보기)", expanded=True):
+                for log in entry["val_logs"]:
+                    if "🔄" in log:
+                        st.warning(log)
+                    elif "❌" in log or "🔺" in log:
+                        st.error(log)
+                    elif "✨" in log or "✅" in log:
+                        st.success(log)
+                    else:
+                        st.info(log)
 
         prev_type = None
         for res in entry["results"]:
@@ -893,7 +891,7 @@ with tab1:
             if not res.get("is_valid", True):
                 st.error(f"⚠️ **{res.get('feedback')}**")
             else:
-                st.success("✅ **검증 통과**")
+                st.success("✅ **검수 통과**")
 
             raw = str(res.get("text", ""))
             
@@ -963,20 +961,15 @@ with tab1:
         with dl_col1:
             st.download_button(
                 "⬇️ 방금 만든 문제 다운로드 (.txt)",
-                data=set_text.encode("utf-8"),
-                file_name=f"{f_name}.txt",
-                mime="text/plain",
-                use_container_width=True,
-                key=f"dl_current_txt_{unique_key}" 
+                data=set_text.encode("utf-8"), file_name=f"{f_name}.txt",
+                mime="text/plain", use_container_width=True, key=f"dl_current_txt_{unique_key}" 
             )
         with dl_col2:
             st.download_button(
                 "📄 방금 만든 문제 다운로드 (.docx)",
-                data=create_word_document(entry, is_multiple=False),
-                file_name=f"{f_name}.docx",
+                data=create_word_document(entry, is_multiple=False), file_name=f"{f_name}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                use_container_width=True,
-                key=f"dl_current_docx_{unique_key}"
+                use_container_width=True, key=f"dl_current_docx_{unique_key}"
             )
 # ════════════════════════════════════════════════════════
 # TAB 2 : 기출 문제 탐색
