@@ -13,7 +13,7 @@ from validator import validate_question_llm, validate_batch_llm  # <--- 이 줄�
 from datetime import datetime
 from prompts import build_generation_prompt as build_prompt_h
 from prompts_e import build_generation_prompt_e
-from prompts import build_batch_retry_prompt
+from prompts import build_retry_prompt
 
 TOPIC_LIST = [
     "고대 역사", "우주 탐사", "심해 생물", "인공지능", 
@@ -805,7 +805,7 @@ with tab1:
                     progress.progress(1.0, text=f"⚠️ 문제 {q_nums_str} 통합 재생성 중...")
                     
                     # 수집된 대상을 기반으로 묶음 프롬프트 조립
-                    retry_prompt = build_batch_retry_prompt(failed_items, point_text)
+                    retry_prompt = build_retry_prompt(failed_items, point_text)
                     
                     try:
                         if is_google_native:
