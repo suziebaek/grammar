@@ -14,7 +14,14 @@ from datetime import datetime
 from prompts import build_generation_prompt as build_prompt_h
 from prompts_e import build_generation_prompt_e
 from prompts import build_retry_prompt
-
+# 🚀 팝업창(모달)을 띄우기 위한 스트림릿 데코레이터 함수 추가
+@st.dialog("⚠️ 필수 설정 누락")
+def show_validator_warning():
+    st.warning("LLM 검증기 작동 여부가 선택되지 않았습니다.\n\n버튼 옆의 메뉴를 **'❌ 검증기 끄기'** 또는 **'✅ 검증기 켜기'**로 변경한 후 다시 생성해 주세요.")
+    
+    if st.button("확인", type="primary", use_container_width=True):
+        st.rerun()
+        
 TOPIC_LIST = [
     "고대 역사", "우주 탐사", "심해 생물", "인공지능", 
     "미술수업", "스포츠 과학", "농업", "음악사", 
@@ -625,10 +632,21 @@ with tab1:
 # ── 생성 버튼 ─────────────────────────────────────────
     st.markdown("---")
     gen_col1, gen_col2, gen_col3 = st.columns([2.5, 1.5, 1])
+    
     with gen_col1:
         generate_btn = st.button("🚀 문제 생성하기", use_container_width=True)
+        
     with gen_col2:
-        use_validator = st.toggle("🛡️ LLM 검증기 작동", value=False, help="AI가 논리적 오류를 검수합니다.")
+        # 🚀 toggle 대신 3단계 selectbox 사용. 공간 절약을 위해 라벨(제목) 숨김 처리
+        validator_status = st.selectbox(
+            "검증기 상태", 
+            ["🛡️ 검증기 선택 (필수)", "❌ 검증기 끄기", "✅ 검증기 켜기"],
+            index=0,
+            label_visibility="collapsed" 
+        )
+        # 선택값에 따라 뒤에서 쓸 use_validator 값을 True/False로 자동 세팅
+        use_validator = True if "켜기" in validator_status else False
+        
     with gen_col3:
         clear_btn = st.button("🗑️ 결과 초기화", use_container_width=True)
 
@@ -638,6 +656,12 @@ with tab1:
 
 # ── 생성 실행 ─────────────────────────────────────────
     if generate_btn:
+        
+        # 🚀 [추가] '선택 (필수)' 상태인 채로 버튼을 누르면 팝업 띄우고 즉시 정지
+        if "선택" in validator_status:
+            show_validator_warning()
+            st.stop()
+            
         total_num = final_high + final_mid + final_low
         safe_api_key = raw_api_key.strip() if raw_api_key else ""
         
