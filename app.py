@@ -295,10 +295,33 @@ def load_gsheets_dual_db(q_url, c_url):
             if mid not in concepts_hierarchy[major]:
                 concepts_hierarchy[major][mid] = []
                 
+            # 🚀 [수정됨] 프롬프트로 날아갈 통합 point_text를 여기서 미리 조립합니다 🚀
+            # 선생님의 코드는 위에서 .fillna('')를 거치므로 빈 값은 빈 문자열('')로 처리됩니다.
+            sub_category = str(row.get('소분류(카운팅 키)', minor)).strip()
+            detail_rule = str(row.get('세부규칙(조회 키)', '')).strip()
+            
+            assembled_point = f"■ [{sub_category}] {detail_rule}\n"
+            
+            if str(row.get('출제포인트', '')).strip():
+                assembled_point += f" - [출제포인트]: {str(row.get('출제포인트')).strip()}\n"
+                
+            if str(row.get('기본 규칙(정답 형태)', '')).strip():
+                assembled_point += f" - [기본 규칙(정답 형태)]: {str(row.get('기본 규칙(정답 형태)')).strip()}\n"
+                
+            if str(row.get('☆(특수 or 예외 용법)', '')).strip():
+                assembled_point += f" - [특수/예외 용법]: {str(row.get('☆(특수 or 예외 용법)')).strip()}\n"
+                
+            if str(row.get('인접 오류 형태', '')).strip():
+                assembled_point += f" - [인접오류(매력적오답 타겟)]: {str(row.get('인접 오류 형태')).strip()}\n"
+                
+            if str(row.get('오류 설명', '')).strip():
+                assembled_point += f" - [오류 사유/설명]: {str(row.get('오류 설명')).strip()}\n"
+            
+            # 조립이 완료된 거대한 텍스트를 "point" 키에 담아서 캐싱합니다.
             concepts_hierarchy[major][mid].append({
                 "minor": minor,
                 "difficulty": str(row.get('난이도', '')).strip(),
-                "point": str(row.get('출제포인트', '')).strip()
+                "point": assembled_point 
             })
             
         return questions_pool, concepts_hierarchy
