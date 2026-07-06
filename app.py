@@ -13,7 +13,7 @@ from validator import validate_question_llm, validate_batch_llm  # <--- 이 줄�
 from datetime import datetime
 from prompts import build_generation_prompt as build_prompt_h
 from prompts_e import build_generation_prompt_e
-
+from prompts import build_retry_prompt
 
 TOPIC_LIST = [
     "고대 역사", "우주 탐사", "심해 생물", "인공지능", 
@@ -785,7 +785,7 @@ with tab1:
                             q_num = int(re.search(r'\d+', raw_splits[i]).group())
                             q_dict[q_num] = raw_splits[i] + "\n" + raw_splits[i+1].strip()
 
-                        # FAIL 문항만 재생성 호출 (Call 3)
+# FAIL 문항만 재생성 호출 (Call 3)
                         for q_num_str, status in val_results.items():
                             if status.startswith("F"):
                                 q_num = int(q_num_str)
@@ -793,18 +793,22 @@ with tab1:
                                 original_text = q_dict.get(q_num, "")
                                 
                                 st.write(f"DEBUG: ⚠️ 문제 {q_num} 재생성 중... (사유: {fail_reason})")
-                                retry_prompt = f"당신이 방금 생성한 문항은 검수에서 반려되었습니다.\n[사유]: {fail_reason}\n위 사유를 완벽히 수정하여 문항 1개만 다시 출력하세요.\n\n[원본 문항]\n{original_text}"
+                                
+                                # 🚀 무거운 기존 함수 대신, 가볍고 날카로운 전용 함수 호출!
+                                retry_prompt = build_retry_prompt(original_text, fail_reason, point_text)
                                 
                                 try:
                                     if is_google_native:
                                         new_text = model.generate_content(retry_prompt).text.strip()
                                     else:
-                                        new_text = client.chat.completions.create(model=selected_model, messages=[{"role": "user", "content": retry_prompt}]).choices[0].message.content.strip()
+                                        new_text = client.chat.completions.create(
+                                            model=selected_model, 
+                                            messages=[{"role": "user", "content": retry_prompt}]
+                                        ).choices[0].message.content.strip()
                                     
-                                    # 육안 검수 플래그 덮어쓰기
                                     q_dict[q_num] = f"🚨 **[육안 검수 요망: 재생성 문항 (사유: {fail_reason})]**\n\n" + new_text
                                 except Exception as e:
-                                    pass # 재생성 실패 시 원본 유지
+                                    pass
                         
                         # 딕셔너리를 다시 하나의 텍스트로 병합
                         result_text = "\n\n".join([q_dict[k] for k in sorted(q_dict.keys())])
