@@ -299,7 +299,7 @@ with st.sidebar:
         "🤖 출제 인공지능 엔진 모델",
         options=["anthropic/claude-sonnet-4.6", "anthropic/claude-opus-4.8", "openai/gpt-5.5", "openai/gpt-5.1", "google/gemini-3.1-pro-preview", "google/gemini-2.5-flash-lite"]
     )
-    val_selected_model = st.selectbox("🔎 검수용 AI 모델", =["anthropic/claude-sonnet-4.6", "anthropic/claude-opus-4.8", "openai/gpt-5.5", "openai/gpt-5.1", "google/gemini-3.1-pro-preview", "google/gemini-2.5-flash-lite", "google/gemini-2.5-pro"], help="전체 문항을 1회 검증할 때 사용할 모델을 선택합니다.")
+    val_selected_model = st.selectbox("🔎 검수용 AI 모델", ["google/gemini-3.1-pro-preview", "google/gemini-2.5-pro", "anthropic/claude-sonnet-4.6", "anthropic/claude-opus-4.8", "openai/gpt-5.5", "openai/gpt-5.1"], help="전체 문항을 1회 검증할 때 사용할 모델을 선택합니다.")
     
     detected_platform = "대기 중..."
     if raw_api_key:
