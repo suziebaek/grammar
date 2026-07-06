@@ -187,25 +187,31 @@ def validate_batch_json(full_text, point_text, client, is_google_native, target_
             response = model.generate_content(val_prompt)
             raw = response.text.strip()
         else:
+            # 🚀 OpenRouter 400 에러의 주범인 'response_format' 강제 파라미터 삭제!
             response = client.chat.completions.create(
                 model=target_model, 
                 messages=[{"role": "user", "content": val_prompt}],
-                temperature=0.0, 
-                response_format={"type": "json_object"}
+                temperature=0.0
             )
             raw = response.choices[0].message.content.strip()
             
-        # 🚀 헛소리가 섞여도 중괄호 {} 사이의 순수 JSON만 강제로 뽑아내는 로직
         import re
+        import json
         json_match = re.search(r'\{.*\}', raw, re.DOTALL)
+        
         if json_match:
-            return json.loads(json_match.group(0))
+            try:
+                return json.loads(json_match.group(0))
+            except json.JSONDecodeError as parse_e:
+                st.error(f"⚠️ JSON 파싱 실패: {parse_e}\nAI가 뱉은 원본 텍스트:\n{raw}")
+                return {}
         else:
             st.error(f"⚠️ 검증기 JSON 추출 실패 (AI가 양식을 어겼습니다). 원본 응답:\n{raw}")
             return {}
             
     except Exception as e:
-        st.error(f"⚠️ 검증 함수 내부 에러 발생: {e}")
+        # API 통신 자체가 터졌을 때 화면에 빨간 글씨로 띄워줌
+        st.error(f"⚠️ 검증 함수 API 통신 에러 발생: {e}")
         return {}
         
 
