@@ -988,20 +988,24 @@ with tab1:
                 current_idx += 1
                 
                 parts = {}
-                tags = ["발문", "보기/지문", "정답", "해설"]
-                for tag in tags:
-                    key = f"[{tag}]"
-                    if key in full_text:
-                        start = full_text.index(key) + len(key)
-                        nexts = [f"[{t}]" for t in tags if f"[{t}]" in full_text[start:]]
-                        end = full_text.index(nexts[0], start) if nexts else len(full_text)
-                        parts[tag] = full_text[start:end].replace("---", "").strip()
+                # 🚀 [수정됨] AI가 태그 뒤에 숫자를 바로 붙여 쓰든, 별표(**)를 치든 완벽하게 잘라내는 강력한 만능 패턴
+                pattern = r'(?:^|\n)\s*\**\[\s*(발문|보기/지문|보기|지문|선택지|정답|해설)\s*\]\**\s*'
+                splits = re.split(pattern, full_text)
+                
+                if len(splits) > 1:
+                    for i in range(1, len(splits), 2):
+                        tag_name = splits[i].replace("보기", "보기/지문").replace("지문", "보기/지문").replace("선택지", "보기/지문")
+                        # 🚀 lstrip(':')을 추가하여 "[정답]: ③" 처럼 콜론이 섞여 있어도 깔끔하게 숫자만 남기도록 방어
+                        tag_content = splits[i+1].replace("---", "").strip().lstrip(':').strip()
+                        parts[tag_name] = tag_content
 
+                # 3개의 핵심 파트가 모두 무사히 추출되었다면 선지 길이순 재정렬 출격!
                 if "보기/지문" in parts and "정답" in parts and "해설" in parts:
                     new_passage, new_ans, new_exp = sort_options(parts["보기/지문"], parts["정답"], parts["해설"])
                     dl_text = f"{num_str}. {parts.get('발문', '').strip()}\n\n{new_passage.strip()}\n\n정답: {new_ans.strip()}\n해설: {new_exp.strip()}\n"
                     full_text = f"【문제 {num_str}】\n[발문]\n{parts.get('발문', '')}\n\n[보기/지문]\n{new_passage}\n\n[정답]\n{new_ans}\n\n[해설]\n{new_exp}\n"
                 else:
+                    # 극한의 상황에서 파싱에 실패했을 때만 원본 유지
                     dl_text = full_text.replace("【", "").replace("】", ".").replace("[발문]\n", "").replace("[보기/지문]\n", "").replace("[정답]", "정답:").replace("[해설]", "해설:")
 
                 is_valid = "🚨" not in full_text
