@@ -298,9 +298,10 @@ def load_gsheets_dual_db(q_url, c_url):
         # 2. 'concept_hierarchy' 탭 파싱
         concepts_hierarchy = {}
         for _, row in df_concepts.iterrows():
-            major = str(row.get('대분류', '')).strip()
-            mid = str(row.get('중분류', '')).strip()
-            minor = str(row.get('소분류', '')).strip()
+            # 🚀 1. 여기서 옛날 이름과 새 이름을 동시에 찾아 'minor' 하나에 완벽히 담아냅니다.
+            major = str(row.get('대분류(챕터)', row.get('대분류', ''))).strip()
+            mid = str(row.get('중분류(Cell)', row.get('중분류', ''))).strip()
+            minor = str(row.get('소분류(카운팅 키)', row.get('소분류', ''))).strip()
             
             if not major or not mid:
                 continue
@@ -310,12 +311,10 @@ def load_gsheets_dual_db(q_url, c_url):
             if mid not in concepts_hierarchy[major]:
                 concepts_hierarchy[major][mid] = []
                 
-            # 🚀 [수정됨] 프롬프트로 날아갈 통합 point_text를 여기서 미리 조립합니다 🚀
-            # 선생님의 코드는 위에서 .fillna('')를 거치므로 빈 값은 빈 문자열('')로 처리됩니다.
-            sub_category = str(row.get('소분류(카운팅 키)', minor)).strip()
+            # 🚀 2. 쓸데없는 sub_category 줄은 지우고, 조립할 때 바로 minor를 꽂아 넣습니다.
             detail_rule = str(row.get('세부규칙(조회 키)', '')).strip()
             
-            assembled_point = f"■ [{sub_category}] {detail_rule}\n"
+            assembled_point = f"■ [{minor}] {detail_rule}\n" 
             
             if str(row.get('출제포인트', '')).strip():
                 assembled_point += f" - [출제포인트]: {str(row.get('출제포인트')).strip()}\n"
