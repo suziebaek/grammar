@@ -965,7 +965,7 @@ with tab1:
                 qdiff = all_diff_map[q_num] # 🚀 이 문제의 난이도 가져오기
                 
                 # 🚀 화면/워드 출력용 묶음 제목(Header) 동적 생성
-                group_header = f"🔥 【{qdiff}】 난이도" if is_diff_sort else f"🟦 【{qtype}】 유형"
+                group_header = f"【{qdiff}】 난이도" if is_diff_sort else f"🟦 【{qtype}】 유형"
                 
                 full_text = re.sub(r'\[META:.*?\]', '', full_text, flags=re.DOTALL)
                 full_text = re.sub(r'【문제 \d+】', f'【문제 {current_idx}】', full_text)
