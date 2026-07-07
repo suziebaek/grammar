@@ -177,6 +177,7 @@ def validate_batch_json(full_text, point_text, client, is_google_native, target_
 1. 난이도 조건: [META: ...] 태그의 난이도 배정 조건이 실제 설계에 반영되었는가?
 2. 정답 무결성: ①보기 개수와 정답 번호가 일치하는지, ②정답 번호와 해설에서 설명하는 내용이 정확히 일치하는지, ③실제 선지 내용과 해설의 내용이 일치하는지? ④오답 검증 시, 반드시 [역할 B]에 제공된 '핵심 출제 포인트'를 다시 읽고(Reference), 해당 오답이 DB에 명시된 '대체 가능한 형태'나 '예외 규칙'에 해당하지 않는지 검증.
 3. 물리적 모순 여부: '개수'를 묻는 문제인 경우, 선지(①~⑤)에 적힌 숫자의 최댓값이 [보기]에 제시된 문장(또는 단어)의 총개수를 초과하는지? (예: 문장은 3개인데 선지에 '4개', '5개'가 존재하면 즉시 F 처리할 것)
+4. 맥락적 단서의 완전성: 시제, 수일치, 의미를 묻는 빈칸의 경우, 문장 내에 정답을 하나로 확정 지을 수 있는 명확한 단서(예: 시간 부사 등)가 존재하는지 비판적으로 검토할 것. 단서가 부족하여 다른 선지도 해석상 정답이 될 수 있는 논리적 틈이 있다면 즉시 F 처리할 것.
 
 [문제 세트]
 {full_text}
@@ -781,7 +782,7 @@ with tab1:
                         model = genai.GenerativeModel(
                             "gemini-3.1-pro-preview",
                             generation_config=genai.types.GenerationConfig(
-                                thinking_config=genai.types.ThinkingConfig(thinking_level="high")
+                                thinking_config=genai.types.ThinkingConfig(thinking_level="medium")
                             )
                         )
                         response = model.generate_content(prompt)
