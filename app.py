@@ -297,12 +297,28 @@ def load_gsheets_dual_db(q_url, c_url):
 
         # 2. 'concept_hierarchy' 탭 파싱
         concepts_hierarchy = {}
+        
+        # 🚀 [추가] 병합된 셀(빈칸)을 채우기 위해 이전 줄의 값을 기억할 변수 생성
+        last_major = ""
+        last_mid = ""
+        
         for _, row in df_concepts.iterrows():
-            # 🚀 1. 실제 엑셀 열 이름인 '챕터', 'Cell', '소분류'를 1순위로 찾도록 수정!
-            major = str(row.get('챕터', row.get('대분류(챕터)', row.get('대분류', '')))).strip()
-            mid = str(row.get('Cell', row.get('중분류(Cell)', row.get('중분류', '')))).strip()
+            # 1. 엑셀에서 원본 값을 일단 그대로 가져옵니다.
+            raw_major = str(row.get('챕터', row.get('대분류(챕터)', row.get('대분류', '')))).strip()
+            raw_mid = str(row.get('Cell', row.get('중분류(Cell)', row.get('중분류', '')))).strip()
             minor = str(row.get('소분류', row.get('소분류(카운팅 키)', ''))).strip()
             
+            # 🚀 2. 가져온 값이 빈칸이 아니면 기억장치(last_major)를 새 이름으로 업데이트합니다.
+            if raw_major:
+                last_major = raw_major
+            if raw_mid:
+                last_mid = raw_mid
+                
+            # 🚀 3. 최종 major와 mid에는 항상 '기억된 값'을 넣습니다. (병합 셀 완벽 해결!)
+            major = last_major
+            mid = last_mid
+            
+            # 이제 major와 mid는 엑셀에서 병합되어 빈칸이더라도 이전 값을 가져오므로 통과합니다.
             if not major or not mid:
                 continue
                 
@@ -311,7 +327,7 @@ def load_gsheets_dual_db(q_url, c_url):
             if mid not in concepts_hierarchy[major]:
                 concepts_hierarchy[major][mid] = []
                 
-            # 🚀 2. 쓸데없는 sub_category 줄은 지우고, 조립할 때 바로 minor를 꽂아 넣습니다.
+            # (이하 detail_rule 조립 및 point_text 생성 코드는 기존과 완벽히 동일하게 유지)
             detail_rule = str(row.get('세부규칙(조회 키)', '')).strip()
             
             assembled_point = f"■ [{minor}] {detail_rule}\n" 
@@ -331,7 +347,6 @@ def load_gsheets_dual_db(q_url, c_url):
             if str(row.get('오류 설명', '')).strip():
                 assembled_point += f" - [오류 사유/설명]: {str(row.get('오류 설명')).strip()}\n"
             
-            # 조립이 완료된 거대한 텍스트를 "point" 키에 담아서 캐싱합니다.
             concepts_hierarchy[major][mid].append({
                 "minor": minor,
                 "difficulty": str(row.get('난이도', '')).strip(),
