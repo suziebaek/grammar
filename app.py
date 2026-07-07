@@ -343,7 +343,7 @@ with st.sidebar:
     
     selected_model = st.selectbox(
         "🤖 출제 인공지능 엔진 모델",
-        options=["anthropic/claude-sonnet-4.6", "anthropic/claude-opus-4.8", "openai/gpt-5.5", "openai/gpt-5.1", "google/gemini-3.1-pro-preview", "google/gemini-2.5-flash-lite", "google/gemini-2.5-pro"]
+        options=["anthropic/claude-sonnet-4.6", "anthropic/claude-opus-4.8", "openai/gpt-5.5", "openai/gpt-5.1", "google/gemini-3.1-pro-preview", "google/gemini-2.5-flash", "google/gemini-2.5-pro"]
     )
     val_selected_model = st.selectbox("🔎 검수용 AI 모델", ["google/gemini-3.1-pro-preview", "google/gemini-2.5-pro", "anthropic/claude-sonnet-4.6", "anthropic/claude-opus-4.8", "openai/gpt-5.5", "openai/gpt-5.1"], help="전체 문항을 1회 검증할 때 사용할 모델을 선택합니다.")
     
