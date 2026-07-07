@@ -14,6 +14,8 @@ from datetime import datetime
 from prompts import build_generation_prompt as build_prompt_h
 from prompts_e import build_generation_prompt_e
 from prompts import build_retry_prompt
+from sorter import get_sorted_q_nums  # 🚀 [추가] 외부 정렬 모듈 불러오기
+
 # 🚀 팝업창(모달)을 띄우기 위한 스트림릿 데코레이터 함수 추가
 @st.dialog("⚠️ 필수 설정 누락")
 def show_validator_warning():
@@ -86,11 +88,16 @@ def create_word_document(history_data, is_multiple=False):
 # 기존: add_paragraph_with_tags(doc, r['text'])
 
 # 🚀 단일 세트 처리 부분 (수정 후)
+        prev_type = None
         for r in entry["results"]:
-            if r['type'] != prev_type:
-                doc.add_heading(f"🟦 {r['type']} 유형", level=1)
-                prev_type = r['type']
-                # UI용 text 대신 다운로드용 dl_text 삽입
+            # 🚀 [수정] group_header가 있으면 그대로 쓰고, 없으면 옛날 양식으로 조립
+            current_header = r.get('group_header', f"🟦 【{r['type']}】 유형")
+            
+            if current_header != prev_type:
+                doc.add_heading(current_header, level=1) # 🚀 강제 조립 텍스트 대신 변수 통째로 삽입
+                prev_type = current_header
+                
+            # UI용 text 대신 다운로드용 dl_text 삽입
             add_paragraph_with_tags(doc, r.get('dl_text', r['text']))
 
 
@@ -102,12 +109,17 @@ def create_word_document(history_data, is_multiple=False):
             
             prev_type = None
 # 🚀 다중 세트(전체) 처리 부분 (수정 후)
+            prev_type = None
             for r in h["results"]:
-                if r['type'] != prev_type:
-                    doc.add_heading(f"🟦 {r['type']} 유형", level=2) 
-                    prev_type = r['type']
+                current_header = r.get('group_header', f"🟦 【{r['type']}】 유형")
+                
+                if current_header != prev_type:
+                    doc.add_heading(current_header, level=2) # 🚀 여기는 level=2 유지
+                    prev_type = current_header
+                    
                 # UI용 text 대신 다운로드용 dl_text 삽입
                 add_paragraph_with_tags(doc, r.get('dl_text', r['text']))
+                
     bio = io.BytesIO()
     doc.save(bio)
     return bio.getvalue()
@@ -648,6 +660,8 @@ with tab1:
         # ────────────────────────────────────────────────────────
         st.markdown("---")
         st.markdown("**📊 난이도 배정**")
+        # 🚀 [추가] 정렬 방식 선택 토글
+        is_diff_sort = st.toggle("📈 난이도별 묶음 정렬 모드 (상 ➔ 중 ➔ 하)", value=False)
         
         st.caption("배정 방식 선택")
         t_col1, t_col2, t_col3 = st.columns([2.5, 1, 6.5])
@@ -778,6 +792,7 @@ with tab1:
             global_q_num = 1 
             all_generated_dict = {}
             all_qtype_map = {} 
+            all_diff_map = {} # 🚀 [추가] 각 문제의 난이도(상/중/하)를 기억할 바구니
 
             # ── 1. 통합 생성을 위한 1차 루프 ──
             for idx, qtype in enumerate(selected_types):
@@ -804,7 +819,10 @@ with tab1:
                     lvl = d_dict["level"]
                     a, b, c = d_dict["comb"]
                     topic = TOPIC_LIST[topic_index % len(TOPIC_LIST)]
-                    topic_index += 1                    
+                    topic_index += 1
+                    
+                    # 🚀 [추가] global_q_num 번호표에 해당하는 난이도를 저장해 둠
+                    all_diff_map[global_q_num] = lvl
                     
                     q_assignments += f"【문제 {global_q_num}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점) | 강제 지문 소재: [{topic}]\n"
                     global_q_num += 1
@@ -929,18 +947,29 @@ with tab1:
                         validation_debug_logs.append(f"🔺 [통합 재생성 실패] API 통신 또는 파싱 오류 발생: {e}")
                         st.error(f"⚠️ 문제 {q_nums_str}번 통합 재생성 중 예외 발생: {e}")
 
-            # ── 3. 최종 후처리 및 UI 파싱 준비 ── (이하 동일)
-
             # ── 3. 최종 후처리 및 UI 파싱 준비 ──
             progress.progress(1.0, text="✅ 최종 렌더링 준비 중...")
             current_idx = 1
             
-            for q_num in sorted(all_generated_dict.keys()):
+           # 🚀 [추가] Sorter 모듈을 호출하여 정렬된 키 리스트를 받아옴!
+            sorted_keys = get_sorted_q_nums(
+                q_keys=all_generated_dict.keys(),
+                all_qtype_map=all_qtype_map,
+                all_diff_map=all_diff_map,
+                is_diff_sort=is_diff_sort
+            )
+            
+            for q_num in sorted_keys: # 🚀 sorted() 대신 정렬된 리스트 사용
                 full_text = all_generated_dict[q_num]
                 qtype = all_qtype_map[q_num] 
+                qdiff = all_diff_map[q_num] # 🚀 이 문제의 난이도 가져오기
+                
+                # 🚀 화면/워드 출력용 묶음 제목(Header) 동적 생성
+                group_header = f"🔥 【{qdiff}】 난이도" if is_diff_sort else f"🟦 【{qtype}】 유형"
                 
                 full_text = re.sub(r'\[META:.*?\]', '', full_text, flags=re.DOTALL)
                 full_text = re.sub(r'【문제 \d+】', f'【문제 {current_idx}】', full_text)
+                # 🚨 [중요 복구] 여기서 문항 번호를 문자열로 저장하고, 다음 문제를 위해 1을 더해줍니다!
                 num_str = str(current_idx)
                 current_idx += 1
                 
@@ -965,7 +994,9 @@ with tab1:
                 feedback = "검수 통과" if is_valid else "부분 재생성됨 (육안 확인 요망)"
 
                 batch_results.append({
-                    "type": qtype, "text": full_text, "dl_text": dl_text,
+                    "type": qtype, 
+                    "group_header": group_header, # 🚀 결과 바구니에 Header 정보 추가
+                    "text": full_text, "dl_text": dl_text,
                     "is_valid": is_valid, "feedback": feedback
                 })
 
@@ -1006,9 +1037,11 @@ with tab1:
 
         prev_type = None
         for res in entry["results"]:
-            if res['type'] != prev_type:
-                st.markdown(f"### 🟦 【{res['type']}】 유형")
-                prev_type = res['type']
+            current_header = res.get('group_header', f"🟦 【{res['type']}】 유형")
+            
+            if current_header != prev_type:
+                st.markdown(f"### {current_header}")
+                prev_type = current_header
             
             if not res.get("is_valid", True):
                 st.error(f"⚠️ **{res.get('feedback')}**")
