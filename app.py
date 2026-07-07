@@ -419,6 +419,43 @@ with st.sidebar:
         else:
             st.write("Awaiting data load...")
             
+        # 6. Validator Standalone Test (단독 검수기)
+        st.markdown("---")
+        st.markdown("**🔎 검수 로직 단독 테스트**")
+        st.caption("생성 비용을 아끼고 검수 프롬프트만 튜닝할 때 사용하세요.")
+        test_q_text = st.text_area("검수할 문제 텍스트 (복붙)", height=150, placeholder="【문제 1】\n...")
+        test_p_text = st.text_area("참조할 DB 규칙 (선택)", height=80, placeholder="[인접오류] ...")
+        
+        if st.button("단독 검수 실행 (Test Validator)", use_container_width=True):
+            safe_api_key = raw_api_key.strip() if raw_api_key else ""
+            if not safe_api_key:
+                st.error("상단에 API 키를 먼저 입력하세요.")
+            elif not test_q_text:
+                st.warning("검수할 문제 텍스트를 입력하세요.")
+            else:
+                # 임시 클라이언트 셋업
+                tmp_client = None
+                tmp_is_google_native = False
+                
+                if safe_api_key.startswith("AIzaSy"):
+                    genai.configure(api_key=safe_api_key)
+                    tmp_is_google_native = True
+                elif safe_api_key.startswith("sk-or-"):
+                    tmp_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=safe_api_key)
+                else:
+                    tmp_client = OpenAI(api_key=safe_api_key)
+                    
+                with st.spinner(f"{val_selected_model} 모델로 검수 중..."):
+                    val_res = validate_batch_json(
+                        full_text=test_q_text, 
+                        point_text=test_p_text, 
+                        client=tmp_client, 
+                        is_google_native=tmp_is_google_native, 
+                        target_model=val_selected_model
+                    )
+                    st.success("검수 완료!")
+                    st.json(val_res) # 결과를 예쁜 JSON 형태로 출력
+            
 # ── 사전 DB 로드 (캐싱) ──
 # (사이드바 블록이 끝난 후, 제일 먼저 데이터를 불러와야 합니다!)
 H_QUESTIONS, H_CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
