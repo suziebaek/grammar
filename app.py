@@ -45,8 +45,8 @@ def get_difficulty_combs(is_e_level):
     else:
         # 🟡 H 레벨 (낮은 레벨 / 기본 - 최대 7점까지만 허용)
         easy = [c for c in ALL_COMBS if sum(c) <= 2]       # 하: 0~2점
-        mid  = [c for c in ALL_COMBS if 3 <= sum(c) <= 5]  # 중: 3~5점
-        hard = [c for c in ALL_COMBS if 6 <= sum(c) <= 7]  # 상: 6~7점 (8, 9점 원천 차단)
+        mid  = [c for c in ALL_COMBS if 3 <= sum(c) <= 6]  # 중: 3~6점
+        hard = [c for c in ALL_COMBS if sum(c) == 7]  # 상: 7점 (8, 9점 원천 차단)
         
     return easy, mid, hard
 
