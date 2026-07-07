@@ -299,8 +299,8 @@ def load_gsheets_dual_db(q_url, c_url):
         concepts_hierarchy = {}
         for _, row in df_concepts.iterrows():
             # 🚀 1. 여기서 옛날 이름과 새 이름을 동시에 찾아 'minor' 하나에 완벽히 담아냅니다.
-            major = str(row.get('대분류(챕터)', row.get('대분류', ''))).strip()
-            mid = str(row.get('중분류(Cell)', row.get('중분류', ''))).strip()
+            major = str(row.get('대분류(챕터)', row.get('챕터', ''))).strip()
+            mid = str(row.get('중분류(Cell)', row.get('cell', ''))).strip()
             minor = str(row.get('소분류(카운팅 키)', row.get('소분류', ''))).strip()
             
             if not major or not mid:
