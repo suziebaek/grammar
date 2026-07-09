@@ -14,6 +14,7 @@ from datetime import datetime
 from prompts import build_generation_prompt as build_prompt_h
 from prompts_e import build_generation_prompt_e
 from prompts import build_retry_prompt
+from flag_checker import verify_all_questions  # 🚀 [추가] META 산수/플래그를 코드로 재검증
 from sorter import get_sorted_q_nums  # 🚀 [추가] 외부 정렬 모듈 불러오기
 
 # 🚀 팝업창(모달)을 띄우기 위한 스트림릿 데코레이터 함수 추가
@@ -181,38 +182,43 @@ def sort_options(passage_text, ans_text, exp_text):
     return passage + new_opts_str.strip(), new_ans, new_exp_text
 
 # 🚀 [수정됨] 모델 변수를 동적으로 받고 구글 네이티브 에러를 해결한 버전
-def validate_batch_json(full_text, point_text, client, is_google_native, target_model):
-    val_prompt = f"""당신은 엄격한 영어 문항 검수 위원입니다.
+VALIDATOR_SYSTEM_PROMPT = """당신은 엄격한 영어 문항 검수 위원입니다.
 생성된 [문제 세트]가 아래 [체크리스트]를 만족하는지 검증하세요.
-[역할 B: 핵심 출제 포인트 (Reference DB)]
-{point_text}
 
 [체크리스트]
-1. 난이도 조건: [META: ...] 태그의 난이도 배정 조건이 실제 설계에 반영되었는가?
-2. 정답 무결성: ①보기 개수와 정답 번호가 일치하는지, ②정답 번호와 해설에서 설명하는 내용이 정확히 일치하는지, ③실제 선지 내용과 해설의 내용이 일치하는지?④오답 검증 시, 반드시 [역할 B]를 다시 읽고, 해당 오답이 제공된 데이터에 명시된 '대체 가능한 형태'나 '특수/예외 용법'에 해당하여 복수 정답이 될 여지가 없는지 엄격하게 검증할 것.
+1. 난이도 조건: [난이도 산출 내역] 태그의 난이도 배정 조건이 실제 설계에 반영되었는가?
+2. 정답 무결성: ①보기 개수와 정답 번호가 일치하는지, ②정답 번호와 해설에서 설명하는 내용이 정확히 일치하는지, ③실제 선지 내용과 해설의 내용이 일치하는지? ④오답 검증 시, 반드시 [역할 B]를 다시 읽고, 해당 오답이 제공된 데이터에 명시된 '대체 가능한 형태'나 '특수/예외 용법'에 해당하여 복수 정답이 될 여지가 없는지 엄격하게 검증할 것.
 3. 물리적 모순 여부: '개수'를 묻는 문제인 경우, 선지(①~⑤)에 적힌 숫자의 최댓값이 [보기]에 제시된 문장(또는 단어)의 총개수를 초과하는지? (예: 문장은 3개인데 선지에 '4개', '5개'가 존재하면 즉시 F 처리할 것)
 4. 맥락적 단서의 완전성: 시제, 수일치, 의미를 묻는 빈칸의 경우, 문장 내에 정답을 하나로 확정 지을 수 있는 명확한 단서(예: 시간 부사 등)가 존재하는지 비판적으로 검토할 것. 단서가 부족하여 다른 선지도 해석상 정답이 될 수 있는 논리적 틈이 있다면 즉시 F 처리할 것.
-
-[문제 세트]
-{full_text}
 
 [출력 규칙 - 절대 엄수]
 - 오직 유효한 JSON 형식으로만 출력. 마크다운이나 다른 설명 금지.
 - 통과 = "P", 실패 = "F: [사유]"
-- 예: {{"1": "P", "2": "F: 보기 시각적 균형 위반"}}
+- 예: {"1": "P", "2": "F: 보기 시각적 균형 위반"}"""
+
+
+def validate_batch_json(full_text, point_text, client, is_google_native, target_model):
+    val_user_prompt = f"""[역할 B: 핵심 출제 포인트 (Reference DB)]
+{point_text}
+
+[문제 세트]
+{full_text}
 """
     try:
         if is_google_native:
             import google.generativeai as genai
             clean_model = target_model.replace("google/", "") if "google/" in target_model else target_model
-            model = genai.GenerativeModel(clean_model)
-            response = model.generate_content(val_prompt)
+            model = genai.GenerativeModel(clean_model, system_instruction=VALIDATOR_SYSTEM_PROMPT)
+            response = model.generate_content(val_user_prompt)
             raw = response.text.strip()
         else:
             # 🚀 OpenRouter 400 에러의 주범인 'response_format' 강제 파라미터 삭제!
             response = client.chat.completions.create(
-                model=target_model, 
-                messages=[{"role": "user", "content": val_prompt}],
+                model=target_model,
+                messages=[
+                    {"role": "system", "content": VALIDATOR_SYSTEM_PROMPT},
+                    {"role": "user", "content": val_user_prompt},
+                ],
                 temperature=0.0
             )
             raw = response.choices[0].message.content.strip()
@@ -841,7 +847,9 @@ with tab1:
                     q_assignments += f"【문제 {global_q_num}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점) | 강제 지문 소재: [{topic}]\n"
                     global_q_num += 1
 
-                prompt = build_generation_prompt(
+                # 🚀 [변경] system/user 분리: 규칙·루브릭·출력형식(고정)은 system,
+                # 기출예시·배정표·타겟개념(가변)은 user로 전달합니다.
+                system_prompt, user_prompt = build_generation_prompt(
                     ref_text=ref_text, selected_major=selected_major, selected_mid=selected_mid,
                     selected_minor_label=selected_minor_label, point_text=point_text, qtype=qtype,
                     num_for_this_type=num_for_this_type, extra=extra, q_assignments=q_assignments,
@@ -852,11 +860,12 @@ with tab1:
                     if is_google_native:
                         model = genai.GenerativeModel(
                             "gemini-3.1-pro-preview",
+                            system_instruction=system_prompt,
                             generation_config=genai.types.GenerationConfig(
                                 thinking_config=genai.types.ThinkingConfig(thinking_level="medium")
                             )
                         )
-                        response = model.generate_content(prompt)
+                        response = model.generate_content(user_prompt)
                         st.session_state.raw_api_log = response.model_dump()
                         try:
                             result_text = response.candidates[0].content.parts[-1].text
@@ -864,7 +873,11 @@ with tab1:
                             result_text = response.text
                     else:
                         response = client.chat.completions.create(
-                            model=selected_model, messages=[{"role": "user", "content": prompt}],
+                            model=selected_model,
+                            messages=[
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt},
+                            ],
                             temperature=0.75, max_tokens=9000
                         )
                         result_text = response.choices[0].message.content
@@ -882,6 +895,16 @@ with tab1:
                 
                 except Exception as e:
                     st.error(f"{qtype} 유형 생성 중 에러 발생: {e}")
+
+            # 🚀 [추가] 0. META 산수/플래그 코드 재검증 (LLM 자체 판단은 1차 참고용)
+            if all_generated_dict:
+                flag_results = verify_all_questions(all_generated_dict)
+                for q_num, fr in flag_results.items():
+                    if fr.mismatches:
+                        validation_debug_logs.append(
+                            f"⚠️ [코드 재검증] 문제 {q_num}번: LLM이 '특이사항 없음'이라 했지만 "
+                            f"실제로는 {fr.mismatches} 플래그가 발생해야 합니다 (A={fr.a}, B={fr.b}, C={fr.c}, D={fr.d})."
+                        )
 
             # ── 2. 통합 검증 및 부분 재생성 루프 (1회 통신으로 모든 에러 교정) ──
             if use_validator and all_generated_dict:
@@ -923,20 +946,27 @@ with tab1:
                     validation_debug_logs.append(f"🔄 [통합 교정 시작] 문제 {q_nums_str}번 반려 확인 -> 1회 통합 재생성 요청")
                     progress.progress(1.0, text=f"⚠️ 문제 {q_nums_str} 통합 재생성 중...")
                     
-                    # 수집된 대상을 기반으로 묶음 프롬프트 조립
-                    retry_prompt = build_retry_prompt(failed_items, point_text)
-                    
+                    # 수집된 대상을 기반으로 묶음 프롬프트 조립 (system/user 분리)
+                    retry_system_prompt, retry_user_prompt = build_retry_prompt(failed_items, point_text)
+
                     try:
                         if is_google_native:
-                            res = model.generate_content(retry_prompt)
+                            retry_model = genai.GenerativeModel(
+                                "gemini-3.1-pro-preview",
+                                system_instruction=retry_system_prompt,
+                            )
+                            res = retry_model.generate_content(retry_user_prompt)
                             try:
                                 retry_result_text = res.candidates[0].content.parts[-1].text.strip()
                             except Exception:
                                 retry_result_text = res.text.strip()
                         else:
                             response = client.chat.completions.create(
-                                model=selected_model, 
-                                messages=[{"role": "user", "content": retry_prompt}],
+                                model=selected_model,
+                                messages=[
+                                    {"role": "system", "content": retry_system_prompt},
+                                    {"role": "user", "content": retry_user_prompt},
+                                ],
                                 temperature=0.5, # 오답 디테일을 정교하게 고치기 위해 온도를 살짝 낮춤
                                 max_tokens=9000
                             )
@@ -981,7 +1011,10 @@ with tab1:
                 # 🚀 화면/워드 출력용 묶음 제목(Header) 동적 생성
                 group_header = f"【{qdiff}】 난이도" if is_diff_sort else f"🟦 【{qtype}】 유형"
                 
-                full_text = re.sub(r'\[META:.*?\]', '', full_text, flags=re.DOTALL)
+                # 🚀 [변경] 출력 형식이 [META: ...] 한 줄에서 [난이도 산출 내역]/[플래그 내역]
+                # 두 줄로 통일됨에 따라 화면 노출 제거 패턴도 함께 갱신
+                full_text = re.sub(r'\[난이도 산출 내역\]:.*?(?=\n|$)', '', full_text)
+                full_text = re.sub(r'\[플래그 내역\]:.*?(?=\n|$)', '', full_text)
                 full_text = re.sub(r'【문제 \d+】', f'【문제 {current_idx}】', full_text)
                 # 🚨 [중요 복구] 여기서 문항 번호를 문자열로 저장하고, 다음 문제를 위해 1을 더해줍니다!
                 num_str = str(current_idx)
