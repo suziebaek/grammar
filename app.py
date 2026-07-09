@@ -145,8 +145,15 @@ st.set_page_config(
 BASE = Path(__file__).parent
 # 선지 재정렬
 def sort_options(passage_text, ans_text, exp_text):
-    match = re.search(r'(.*?)(①.*)', passage_text, re.DOTALL)
-    if not match: return passage_text, ans_text, exp_text
+    
+    # 🚀 [핵심 수정] 지문 속에 "①~⑤" 기호가 섞여 있어도 무시하고,
+    # 진짜 선지 1번부터 5번까지 차례대로 등장하는 '마지막 선지 블록'만 완벽하게 뜯어냅니다.
+    match = re.search(r'(.*?)(①.*?②.*?③.*?④.*?⑤.*)', passage_text, re.DOTALL)
+    if not match: 
+        return passage_text, ans_text, exp_text
+    
+    passage, opts_raw = match.group(1), match.group(2)
+    opts = re.split(r'([①-⑤])', opts_raw)[1:]
     
     passage, opts_raw = match.group(1), match.group(2)
     opts = re.split(r'([①-⑤])', opts_raw)[1:]
