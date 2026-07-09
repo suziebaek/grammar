@@ -166,7 +166,8 @@ def sort_options(passage_text, ans_text, exp_text):
     
     # 텍스트 길이를 기준으로 예전 번호(키)들을 정렬
     old_keys = list(old_opt_dict.keys())
-    sorted_old_keys = sorted(old_keys, key=lambda k: len(old_opt_dict[k]))
+    # 🚀 [수정됨] 띄어쓰기(" ")를 모두 제거한 '순수 글자 수'만을 기준으로 정렬!
+    sorted_old_keys = sorted(old_keys, key=lambda k: len(old_opt_dict[k].replace(" ", "")))
     
     markers = ['①', '②', '③', '④', '⑤']
     old_to_new = {old_k: markers[i] for i, old_k in enumerate(sorted_old_keys)}
