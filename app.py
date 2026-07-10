@@ -891,7 +891,7 @@ with tab1:
                         result_text = response.choices[0].message.content
 
                     if result_text:
-                        result_text = result_text.replace(r"\_", "_").replace("&nbsp;", " ")
+                        result_text = result_text.replace(r"\_", "_").replace("&nbsp;", " ").replace("*", "")
                     if result_text is None:
                         raise Exception("AI가 텍스트 대신 빈 값을 반환했습니다.")
 
