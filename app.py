@@ -625,7 +625,8 @@ with tab1:
 
         minor_items = CONCEPTS[selected_major][selected_mid] if CONCEPTS and selected_major in CONCEPTS and selected_mid in CONCEPTS[selected_major] else []
         
-        minor_options = [item["minor"] for item in minor_items if item["minor"]] if minor_items else []
+        # 🚀 [수정1] multiselect에 동일한 소분류 이름이 중복으로 뜨지 않도록 고유값(Unique)만 추출
+        minor_options = list(dict.fromkeys([item["minor"] for item in minor_items if item["minor"]])) if minor_items else []
         
         if minor_options:
             selected_minors = st.multiselect("③ 소분류 (복수 선택 가능)", minor_options, default=minor_options, key="minor")
@@ -637,10 +638,15 @@ with tab1:
                 st.warning("소분류를 1개 이상 선택하세요.")
             elif len(selected_minors) == 1:
                 selected_minor_label = selected_minors[0]
-                selected_item = next((x for x in minor_items if x["minor"] == selected_minor_label), None)
-                diff = selected_item["difficulty"] if selected_item else ""
+                
+                # 🚀 [핵심 수정] next()로 첫 줄만 가져오던 것을 폐기하고, 해당 소분류 이름을 가진 '모든 행'을 수집!
+                selected_items = [x for x in minor_items if x["minor"] == selected_minor_label]
+                
+                diff = selected_items[0]["difficulty"] if selected_items else ""
                 diff_class = f"diff-{diff}" if diff else ""
-                point_text = selected_item.get("point", "")
+                
+                # 🚀 수집된 모든 행의 세부규칙을 줄바꿈(\n\n)으로 완벽하게 이어 붙임
+                point_text = "\n\n".join([x.get("point", "") for x in selected_items if x.get("point")])
                 
                 st.markdown(f'④ 개념의 난이도: <span class="diff-badge {diff_class}">{diff if diff else "미분류"}</span>', unsafe_allow_html=True)
                 if point_text:
