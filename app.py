@@ -321,7 +321,7 @@ def load_gsheets_dual_db(q_url, c_url):
             # 1. 엑셀에서 원본 값을 일단 그대로 가져옵니다.
             raw_major = str(row.get('챕터', row.get('대분류(챕터)', row.get('대분류', '')))).strip()
             raw_mid = str(row.get('Cell', row.get('중분류(Cell)', row.get('중분류', '')))).strip()
-            minor = str(row.get('소분류', row.get('소분류(카운팅 키)', ''))).strip()
+            raw_minor = str(row.get('소분류', row.get('소분류(카운팅 키)', ''))).strip()
             
             # 🚀 2. 가져온 값이 빈칸이 아니면 기억장치(last_major)를 새 이름으로 업데이트합니다.
             if raw_major:
