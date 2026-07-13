@@ -315,6 +315,7 @@ def load_gsheets_dual_db(q_url, c_url):
         # 🚀 [추가] 병합된 셀(빈칸)을 채우기 위해 이전 줄의 값을 기억할 변수 생성
         last_major = ""
         last_mid = ""
+        last_minor = ""  # 🚀 소분류 기억 장치 추가!        
         
         for _, row in df_concepts.iterrows():
             # 1. 엑셀에서 원본 값을 일단 그대로 가져옵니다.
@@ -327,10 +328,13 @@ def load_gsheets_dual_db(q_url, c_url):
                 last_major = raw_major
             if raw_mid:
                 last_mid = raw_mid
+            if raw_minor:                 # 🚀 소분류 빈칸 채우기 로직 추가
+                last_minor = raw_minor
                 
             # 🚀 3. 최종 major와 mid에는 항상 '기억된 값'을 넣습니다. (병합 셀 완벽 해결!)
             major = last_major
             mid = last_mid
+            minor = last_minor            # 🚀 빈칸이어도 이전 줄의 소분류 이름을 가져옴
             
             # 이제 major와 mid는 엑셀에서 병합되어 빈칸이더라도 이전 값을 가져오므로 통과합니다.
             if not major or not mid:
