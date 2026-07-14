@@ -2,7 +2,13 @@
 # 공통 페르소나/루브릭/규칙은 prompts_common.py에 있고, 여기서는
 # E레벨 고유 규칙만 정의합니다. 반환값은 (system_prompt, user_prompt) 튜플입니다.
 
-from prompts_common import QUESTION_INSTRUCTIONS, build_system_prompt, build_user_prompt
+from prompts_common import (
+    QUESTION_INSTRUCTIONS,
+    build_system_prompt,
+    build_user_prompt,
+    build_retry_system_prompt,  # 🚀 누락되었던 재생성 system 함수 추가
+    build_retry_user_prompt,    # 🚀 누락되었던 재생성 user 함수 추가
+)
 
 E_LEVEL_RULES = """\
 - [지문 창작] 기출의 문장 뼈대는 모방하되, 주어/어휘/상황을 완전히 새로운 내용으로
@@ -27,3 +33,9 @@ def build_generation_prompt_e(
         num_for_this_type=num_for_this_type, extra=extra, q_assignments=q_assignments,
     )
     return system_prompt, user_prompt
+
+
+# 🚀 E레벨 전용 반려 문항 재생성 함수 추가
+def build_retry_prompt(failed_items, point_text):
+    """반려 문항 재생성 프롬프트. (system_prompt, user_prompt) 튜플을 반환합니다."""
+    return build_retry_system_prompt(), build_retry_user_prompt(failed_items, point_text)
