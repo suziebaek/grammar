@@ -1064,13 +1064,20 @@ with tab1:
                 is_valid = "🚨" not in full_text
                 feedback = "검수 통과" if is_valid else "부분 재생성됨 (육안 확인 요망)"
 
+                # 🚀 [수정] excel_exporter가 정확한 원본 데이터를 가공할 수 있도록 송신 데이터 보강
                 batch_results.append({
                     "type": qtype, 
-                    "group_header": group_header, # 🚀 결과 바구니에 Header 정보 추가
-                    "text": full_text, "dl_text": dl_text,
+                    "group_header": group_header, 
+                    "text": full_text, 
+                    "dl_text": dl_text,
                     "is_valid": is_valid, 
                     "feedback": feedback,
-                    "parsed_parts": parts  # 🚀 [추가] 엑셀 모듈로 넘겨주기 위해 원본 조각 저장
+                    "raw_diff": qdiff, 
+                    "clean_question": parts.get("발문", specific_instruction), # 🚀 발문 매핑 유실 방지
+                    "clean_passage": new_passage,
+                    "clean_answer": new_ans,
+                    "clean_explanation": new_exp,
+                    "parsed_parts": parts
                 })
             # ── 4. 세션 히스토리에 최종 저장 ──
             entry = {
