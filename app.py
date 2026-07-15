@@ -16,6 +16,8 @@ from prompts_e import build_generation_prompt_e
 from prompts import build_retry_prompt
 from flag_checker import verify_all_questions  # 🚀 [추가] META 산수/플래그를 코드로 재검증
 from sorter import get_sorted_q_nums  # 🚀 [추가] 외부 정렬 모듈 불러오기
+from excel_exporter import create_excel_document
+
 
 # 🚀 팝업창(모달)을 띄우기 위한 스트림릿 데코레이터 함수 추가
 @st.dialog("⚠️ 필수 설정 누락")
@@ -1066,9 +1068,10 @@ with tab1:
                     "type": qtype, 
                     "group_header": group_header, # 🚀 결과 바구니에 Header 정보 추가
                     "text": full_text, "dl_text": dl_text,
-                    "is_valid": is_valid, "feedback": feedback
+                    "is_valid": is_valid, 
+                    "feedback": feedback,
+                    "parsed_parts": parts  # 🚀 [추가] 엑셀 모듈로 넘겨주기 위해 원본 조각 저장
                 })
-
             # ── 4. 세션 히스토리에 최종 저장 ──
             entry = {
                 "major": selected_major,
@@ -1179,21 +1182,30 @@ with tab1:
         safe_model = selected_model.split('/')[-1] 
         f_name = f"{entry['major']}_{entry['mid']}_{now_str}_{safe_model}"
     
-        dl_col1, dl_col2 = st.columns(2)
+        dl_col1, dl_col2, dl_col3 = st.columns(3)
         unique_key = len(st.session_state.history) 
         
-        with dl_col1:
+       with dl_col1:
             st.download_button(
-                "⬇️ 방금 만든 문제 다운로드 (.txt)",
+                "⬇️ 방금 만든 문제 (.txt)",
                 data=set_text.encode("utf-8"), file_name=f"{f_name}.txt",
                 mime="text/plain", use_container_width=True, key=f"dl_current_txt_{unique_key}" 
             )
         with dl_col2:
             st.download_button(
-                "📄 방금 만든 문제 다운로드 (.docx)",
+                "📄 방금 만든 문제 (.docx)",
                 data=create_word_document(entry, is_multiple=False), file_name=f"{f_name}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 use_container_width=True, key=f"dl_current_docx_{unique_key}"
+            )
+        with dl_col3:
+            st.download_button(
+                "📊 엑셀원고 다운로드 (.xlsx)",
+                # 🚀 외부 모듈에서 불러온 함수 사용!
+                data=create_excel_document(entry, is_multiple=False, is_e_level=IS_E_LEVEL, concepts_dict=CONCEPTS), 
+                file_name=f"{f_name}_wrap_up_item.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True, key=f"dl_current_xlsx_{unique_key}"
             )
 # ════════════════════════════════════════════════════════
 # TAB 2 : 기출 문제 탐색
