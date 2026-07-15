@@ -1052,19 +1052,27 @@ with tab1:
                         tag_content = splits[i+1].replace("---", "").strip().lstrip(':').strip()
                         parts[tag_name] = tag_content
 
+                # 🚀 모든 분기에서 공통적으로 쓰일 변수를 미리 선언하여 NameError 원천 차단!
+                new_passage = ""
+                new_ans = ""
+                new_exp = ""
+
                 # 3개의 핵심 파트가 모두 무사히 추출되었다면 선지 길이순 재정렬 출격!
                 if "보기/지문" in parts and "정답" in parts and "해설" in parts:
                     new_passage, new_ans, new_exp = sort_options(parts["보기/지문"], parts["정답"], parts["해설"])
                     dl_text = f"{num_str}. {parts.get('발문', '').strip()}\n\n{new_passage.strip()}\n\n정답: {new_ans.strip()}\n해설: {new_exp.strip()}\n"
                     full_text = f"【문제 {num_str}】\n[발문]\n{parts.get('발문', '')}\n\n[보기/지문]\n{new_passage}\n\n[정답]\n{new_ans}\n\n[해설]\n{new_exp}\n"
                 else:
-                    # 극한의 상황에서 파싱에 실패했을 때만 원본 유지
+                    # 🚀 파싱 실패 시에도 변수명이 없어 터지지 않도록 확실하게 기본값 매핑
+                    new_passage = parts.get("보기/지문", parts.get("지문", parts.get("보기", "")))
+                    new_ans = parts.get("정답", "")
+                    new_exp = parts.get("해설", "")
                     dl_text = full_text.replace("【", "").replace("】", ".").replace("[발문]\n", "").replace("[보기/지문]\n", "").replace("[정답]", "정답:").replace("[해설]", "해설:")
 
                 is_valid = "🚨" not in full_text
                 feedback = "검수 통과" if is_valid else "부분 재생성됨 (육안 확인 요망)"
 
-                # 🚀 [수정] excel_exporter가 정확한 원본 데이터를 가공할 수 있도록 송신 데이터 보강
+                # excel_exporter가 안전하게 수신하도록 송신 바구니 완벽 조립
                 batch_results.append({
                     "type": qtype, 
                     "group_header": group_header, 
@@ -1073,7 +1081,7 @@ with tab1:
                     "is_valid": is_valid, 
                     "feedback": feedback,
                     "raw_diff": qdiff, 
-                    "clean_question": parts.get("발문", ""), # 🚀 발문 매핑 유실 방지
+                    "clean_question": parts.get("발문", ""), # default fallback은 엑셀 모듈이 알아서 처리
                     "clean_passage": new_passage,
                     "clean_answer": new_ans,
                     "clean_explanation": new_exp,
