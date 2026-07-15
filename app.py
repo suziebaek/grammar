@@ -1073,7 +1073,7 @@ with tab1:
                     "is_valid": is_valid, 
                     "feedback": feedback,
                     "raw_diff": qdiff, 
-                    "clean_question": parts.get("발문", specific_instruction), # 🚀 발문 매핑 유실 방지
+                    "clean_question": parts.get("발문", ""), # 🚀 발문 매핑 유실 방지
                     "clean_passage": new_passage,
                     "clean_answer": new_ans,
                     "clean_explanation": new_exp,
