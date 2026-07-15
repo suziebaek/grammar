@@ -1185,12 +1185,12 @@ with tab1:
         dl_col1, dl_col2, dl_col3 = st.columns(3)
         unique_key = len(st.session_state.history) 
         
-       with dl_col1:
+        with dl_col1:
             st.download_button(
                 "⬇️ 방금 만든 문제 (.txt)",
                 data=set_text.encode("utf-8"), file_name=f"{f_name}.txt",
                 mime="text/plain", use_container_width=True, key=f"dl_current_txt_{unique_key}" 
-                )
+            )
         with dl_col2:
             st.download_button(
                 "📄 방금 만든 문제 (.docx)",
