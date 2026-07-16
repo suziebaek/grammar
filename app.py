@@ -1047,10 +1047,8 @@ with tab1:
                 
                 if len(splits) > 1:
                     for i in range(1, len(splits), 2):
-                        tag_name = splits[i].strip()
-                        if tag_name in ["보기", "지문", "선택지", "보기/지문"]:
-                            tag_name = "보기/지문"
-                            
+                        tag_name = splits[i].replace("보기", "보기/지문").replace("지문", "보기/지문").replace("선택지", "보기/지문")
+                        # 🚀 lstrip(':')을 추가하여 "[정답]: ③" 처럼 콜론이 섞여 있어도 깔끔하게 숫자만 남기도록 방어
                         tag_content = splits[i+1].replace("---", "").strip().lstrip(':').strip()
                         parts[tag_name] = tag_content
 
