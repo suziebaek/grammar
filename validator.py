@@ -1,3 +1,8 @@
+# ⚠️ [사용 중단] 이 파일의 validate_question_llm / validate_batch_llm 함수는
+# 더 이상 app.py에서 호출되지 않습니다. 실제 검수 로직은 app.py 안에 정의된
+# validate_batch_json() + VALIDATOR_SYSTEM_PROMPT (JSON 기반, 더 정교한 체크리스트)
+# 로 대체되었습니다. 이 파일은 과거 이력 확인용으로만 남겨두었고, 삭제해도 앱
+# 동작에는 영향이 없습니다. (필요 없다고 판단되면 이 파일 자체를 지워도 됩니다.)
 import json
 
 def validate_question_llm(full_text, client, is_google_native, target_model, use_llm=True):

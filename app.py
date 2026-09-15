@@ -9,7 +9,10 @@ import time
 import io
 from docx import Document # 🚀 [추가] 워드 다운로드를 위한 라이브러리 (pip install python-docx 필요)
 from docx.shared import Pt  # 🚀 [추가] 폰트 크기(Pt) 조절을 위한 모듈
-from validator import validate_question_llm, validate_batch_llm  # <--- 이 줄이 반드시 있어야 합니다!
+# 🛠️ [정리] validator.py의 validate_question_llm / validate_batch_llm는 실제로는
+#    어디서도 호출되지 않는 구버전 코드였습니다 (실제 검수는 아래에 정의된
+#    validate_batch_json이 담당). 혼동을 막기 위해 import를 제거했습니다.
+#    validator.py 자체는 하위 호환을 위해 남겨두되 상단에 사용 중단 안내를 추가했습니다.
 from datetime import datetime
 from prompts import build_generation_prompt as build_prompt_h
 from prompts_e import build_generation_prompt_e
@@ -716,21 +719,34 @@ with tab1:
 
         st.caption("난이도 활성화")
         btn_col1, btn_col2, btn_col3 = st.columns(3)
-        with btn_col1: st.toggle("🔴 상", value=True, key="btn_high", disabled=is_disabled)
-        with btn_col2: st.toggle("🔵 중", value=True, key="btn_mid", disabled=is_disabled)
-        with btn_col3: st.toggle("🟢 하", value=True, key="btn_low", disabled=is_disabled)
-        
+        with btn_col1: enable_high = st.toggle("🔴 상", value=True, key="btn_high", disabled=is_disabled)
+        with btn_col2: enable_mid = st.toggle("🔵 중", value=True, key="btn_mid", disabled=is_disabled)
+        with btn_col3: enable_low = st.toggle("🟢 하", value=True, key="btn_low", disabled=is_disabled)
+
+        # 🛠️ [버그 수정] 예전엔 이 토글들의 값을 어디서도 읽지 않아서, 꺼도 아무 효과가
+        #    없었습니다(옆 숫자 입력값만 그대로 사용됨). 이제 꺼진 난이도는 문항 수를
+        #    강제로 0으로 만들고, 숫자 입력도 함께 비활성화해서 혼동을 없앴습니다.
         st.caption("문항 수 할당")
         num_col1, num_col2, num_col3 = st.columns(3)
-        with num_col1: val_high = st.number_input("상 (개)", min_value=0, max_value=20, value=3, key="num_high", disabled=is_disabled)
-        with num_col2: val_mid = st.number_input("중 (개)", min_value=0, max_value=20, value=4, key="num_mid", disabled=is_disabled)
-        with num_col3: val_low = st.number_input("하 (개)", min_value=0, max_value=20, value=3, key="num_low", disabled=is_disabled)
+        with num_col1:
+            val_high = st.number_input("상 (개)", min_value=0, max_value=20, value=3,
+                                        key="num_high", disabled=is_disabled or not enable_high)
+        with num_col2:
+            val_mid = st.number_input("중 (개)", min_value=0, max_value=20, value=4,
+                                       key="num_mid", disabled=is_disabled or not enable_mid)
+        with num_col3:
+            val_low = st.number_input("하 (개)", min_value=0, max_value=20, value=3,
+                                       key="num_low", disabled=is_disabled or not enable_low)
 
         if not is_manual:
             final_high, final_mid, final_low = 3, 4, 3
             st.info("🤖 **[자동 모드]** 기본값(상3, 중4, 하3)으로 배정됩니다.")
         else:
-            final_high, final_mid, final_low = val_high, val_mid, val_low
+            final_high = val_high if enable_high else 0
+            final_mid = val_mid if enable_mid else 0
+            final_low = val_low if enable_low else 0
+            if not (enable_high and enable_mid and enable_low):
+                st.caption("🔕 꺼진 난이도는 0개로 처리되어 생성에서 제외됩니다.")
             
         # 🚀 [수정] 변수명을 직관적으로 바꾸고 안내 문구를 '총합'의 의미로 변경
         total_num = final_high + final_mid + final_low
@@ -798,7 +814,15 @@ with tab1:
             
             client = None
             is_google_native = False
-            
+            # 🛠️ [버그 수정] 예전엔 구글 네이티브 키일 때 사이드바에서 고른 모델과
+            #    무관하게 "gemini-3.1-pro-preview"가 하드코딩되어 있었습니다.
+            #    (도움말은 "시험가동 시 flash-lite 선택"이라고 안내하면서 실제로는
+            #     무시하고 항상 비싼 pro-preview를 호출하던 버그.)
+            #    이제 사이드바에서 고른 selected_model을 그대로 사용합니다.
+            google_model_name = (
+                selected_model.split("/", 1)[1] if selected_model.startswith("google/") else selected_model
+            )
+
             if safe_api_key.startswith("sk-or-"):
                 client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=safe_api_key)
             elif safe_api_key.startswith("AIzaSy"):
@@ -879,7 +903,7 @@ with tab1:
                 try:
                     if is_google_native:
                         model = genai.GenerativeModel(
-                            "gemini-3.1-pro-preview",
+                            google_model_name,  # 🛠️ 하드코딩 제거: 사이드바 선택 모델 사용
                             system_instruction=system_prompt,
                             generation_config=genai.types.GenerationConfig(
                                 thinking_config=genai.types.ThinkingConfig(thinking_level="medium")
@@ -972,7 +996,7 @@ with tab1:
                     try:
                         if is_google_native:
                             retry_model = genai.GenerativeModel(
-                                "gemini-3.1-pro-preview",
+                                google_model_name,  # 🛠️ 하드코딩 제거: 사이드바 선택 모델 사용
                                 system_instruction=retry_system_prompt,
                             )
                             res = retry_model.generate_content(retry_user_prompt)
@@ -1327,12 +1351,28 @@ with tab3:
 
                 # 기존 파일명 변수 교체
                 set_f_name = f"{datetime.now().strftime('%y%m%d')}_{selected_model.split('/')[-1]}_{h['major']}_{h['mid']}"
-                
+
+                # 🛠️ [버그 수정] 예전엔 여기서 tab1 쪽에서만 정의되는 전역 변수
+                #    set_text를 그대로 재사용했습니다. 그 결과:
+                #      1) 히스토리의 어떤 세트를 눌러도 항상 '최근에 만든 세트'의
+                #         내용이 다운로드됨 (h가 아니라 tab1의 마지막 entry를 참조)
+                #      2) "결과 초기화" 버튼으로 pending을 비운 뒤 히스토리 탭에서
+                #         다운로드를 시도하면 set_text가 정의된 적이 없어 NameError로
+                #         앱이 죽음
+                #    지금 순회 중인 h(이 세트)를 기준으로 텍스트를 새로 조립해서 고쳤습니다.
+                set_text_this = f"[{h['major']} > {h['mid']} > {h['minor']}] {h.get('difficulty', '')}\n\n"
+                prev_set_type = None
+                for r in h["results"]:
+                    if r["type"] != prev_set_type:
+                        set_text_this += f"\n🟦 {r['type']} 유형\n\n"
+                        prev_set_type = r["type"]
+                    set_text_this += f"{r.get('dl_text', r['text'])}\n\n"
+
                 sc1, sc2 = st.columns(2)
                 with sc1:
                     st.download_button(
                         f"⬇️ 세트 {idx} 다운로드 (.txt)",
-                        data=set_text.encode("utf-8"),
+                        data=set_text_this.encode("utf-8"),
                         file_name=f"{set_f_name}.txt",
                         mime="text/plain",
                         use_container_width=True,

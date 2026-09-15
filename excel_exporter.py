@@ -2,6 +2,17 @@
 import pandas as pd
 import io
 import re
+from datetime import datetime
+
+
+def _current_semester_label() -> str:
+    """🛠️ [버그 수정] 예전엔 "semester": "2026-가을"이 하드코딩되어 있어서,
+    2026년 가을 학기가 지나도 계속 같은 값이 찍혔습니다. 현재 날짜 기준으로
+    동적으로 계산합니다 (3~7월=봄/1학기, 8~2월=가을/2학기, 국내 학사일정 기준 근사치)."""
+    now = datetime.now()
+    term = "봄" if 3 <= now.month <= 7 else "가을"
+    return f"{now.year}-{term}"
+
 
 def create_excel_document(history_data, is_multiple, is_e_level, concepts_dict):
     data = []
@@ -109,7 +120,7 @@ def create_excel_document(history_data, is_multiple, is_e_level, concepts_dict):
             
             # 7. 최종 엑셀 레코드 조립 (wrap_up_item 포맷 100% 일치)
             row = {
-                "semester": "2026-가을",
+                "semester": _current_semester_label(),
                 "level_scope": level_char,
                 "cell_id": cell_id,
                 "difficulty": difficulty,
