@@ -17,6 +17,7 @@ from datetime import datetime
 from prompts import build_generation_prompt as build_prompt_h
 from prompts_e import build_generation_prompt_e
 from prompts import build_retry_prompt
+from prompts_common import T_SCORES  # 🚀 [v6] 792개 실측 유형계수
 from flag_checker import verify_all_questions  # 🚀 [추가] META 산수/플래그를 코드로 재검증
 from sorter import get_sorted_q_nums  # 🚀 [추가] 외부 정렬 모듈 불러오기
 from excel_exporter import create_excel_document
@@ -39,7 +40,26 @@ TOPIC_LIST = [
     
 ]
 
-# 🚀 1. 난이도 분배 함수 (H레벨 최대 7점 제한 적용)
+# 🚀 2. [v6 신규] 문제유형(T)을 먼저 고려한 A/B/C 조합 역산
+# 난도 측정 로직 v6: 최종점수 = T(유형계수, 실측) + (A+B+C - 3.5) * 조정계수(잠정 1)
+# 레벨별 목표점수는 792개 실측 분포(최저 -8.6 ~ 최고 +5.5, 중앙값 0.59)를 참고한 근사 중심값이다.
+LEVEL_TARGET_SCORE = {"하": -3.0, "중": 0.5, "상": 4.0}
+
+def pick_combo_for_qtype(qtype, level, easy_pool, mid_pool, hard_pool):
+    """v6 공식을 역산해서, 이 qtype으로 이 level을 만들려면 A+B+C가 얼마여야 하는지 구하고
+    가장 가까운 조합을 돌려준다. qtype이 이미 T가 높으면(예: 개수 고르기) A+B+C는 적게,
+    T가 낮으면(예: 영작/우리말 전환) A+B+C를 많이 써야 같은 레벨에 도달한다."""
+    t_score = T_SCORES.get(qtype, 0.0)  # 표본 부족/미등록 유형은 평균(0.0)으로 취급
+    target = LEVEL_TARGET_SCORE[level]
+    needed_sum = (target - t_score) + 3.5
+    needed_sum = max(0, min(9, needed_sum))
+
+    # 원래 레벨별 풀(easy/mid/hard) 안에서 합이 needed_sum에 제일 가까운 조합을 우선 사용.
+    # (풀 자체를 벗어나면 레벨 라벨의 의미가 흐려지므로, 풀 내에서만 최적을 찾는다.)
+    pool = {"하": easy_pool, "중": mid_pool, "상": hard_pool}[level]
+    return min(pool, key=lambda comb: abs(sum(comb) - needed_sum))
+
+
 def get_difficulty_combs(is_e_level):
     ALL_COMBS = [(a, b, c) for a in (0, 1, 2, 3) for b in (0, 1, 2, 3) for c in (0, 1, 2, 3)]
     
@@ -840,15 +860,22 @@ with tab1:
             EASY_POOL = EASY_COMBS
             MID_POOL = MID_COMBS
             HARD_POOL = HARD_COMBS
-            
-            diff_targets = []
-            for _ in range(final_high): diff_targets.append({"level": "상", "comb": random.choice(HARD_POOL)})
-            for _ in range(final_mid):  diff_targets.append({"level": "중", "comb": random.choice(MID_POOL)})
-            for _ in range(final_low):  diff_targets.append({"level": "하", "comb": random.choice(EASY_POOL)})
-            
+
+            # 🚀 [v6 반영] 난도 측정 로직 v6 — 유형(T)이 A+B+C보다 난이도에 더 큰 영향을 준다는
+            # 792개 실측 결과(Bradley-Terry)를 반영. 이제 "타겟 레벨"만으로 A/B/C를 무작위로
+            # 뽑지 않고, 실제로 배정될 문제유형(qtype)의 실측 유형계수(T_SCORES)를 먼저 보고
+            # "레벨 목표점수 - T(qtype)"만큼만 A+B+C가 채우도록 역산한다.
+            level_targets = []
+            for _ in range(final_high): level_targets.append("상")
+            for _ in range(final_mid):  level_targets.append("중")
+            for _ in range(final_low):  level_targets.append("하")
+            random.shuffle(level_targets)
+
             allocations = {t: [] for t in selected_types}
-            for i, diff_dict in enumerate(diff_targets):
-                allocations[selected_types[i % len(selected_types)]].append(diff_dict)
+            for i, lvl in enumerate(level_targets):
+                qtype_for_this = selected_types[i % len(selected_types)]
+                comb = pick_combo_for_qtype(qtype_for_this, lvl, EASY_POOL, MID_POOL, HARD_POOL)
+                allocations[qtype_for_this].append({"level": lvl, "comb": comb})
 
             random.shuffle(TOPIC_LIST)
             topic_index = 0
