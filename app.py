@@ -308,19 +308,33 @@ def load_gsheets_dual_db(q_url, c_url):
         # 난이도 열 탐색
         diff_col = next((col for col in df_questions.columns if '난이도' in col), None)
 
+        # 🚀 [v6] 난도 측정 로직 v6부터는 5단계(하/중하/중중/중상/상)를 쓰므로,
+        # 예전처럼 "상"/"중"/"하" 글자가 포함돼 있는지만 보면 "중상"이 "상"으로,
+        # "중하"·"중중"이 전부 "중"으로 잘못 뭉개진다. 정확한 5단계 값을 먼저
+        # 그대로 매칭하고, 못 찾을 때만 기존 방식(부분 문자열)으로 대체한다.
+        FIVE_TIERS = ("하", "중하", "중중", "중상", "상")
+        # 기존 생성 로직(final_high/mid/low, HARD_POOL 등)은 3단계 기준이므로,
+        # 참고 예시 검색 등 3단계가 필요한 곳에서 쓸 매핑도 같이 만들어둔다.
+        TIER5_TO_TIER3 = {"하": "하", "중하": "하", "중중": "중", "중상": "상", "상": "상"}
+
         # 1. 'questions_db' 탭 파싱
         questions_pool = []
         for _, row in df_questions.iterrows():
             q_type = str(row.get('문제유형', '')).strip()
             if not q_type:
                 continue
-                
-            q_diff = ""
+
+            q_diff5 = ""
             if diff_col:
                 val = str(row.get(diff_col, '')).strip()
-                if "상" in val: q_diff = "상"
-                elif "중" in val: q_diff = "중"
-                elif "하" in val: q_diff = "하"
+                if val in FIVE_TIERS:
+                    q_diff5 = val
+                elif "중상" in val: q_diff5 = "중상"
+                elif "중하" in val: q_diff5 = "중하"
+                elif "중" in val: q_diff5 = "중중"
+                elif "상" in val: q_diff5 = "상"
+                elif "하" in val: q_diff5 = "하"
+            q_diff = TIER5_TO_TIER3.get(q_diff5, "")
 
             questions_pool.append({
                 "u": str(row.get('대분류', '')).strip(),
@@ -330,7 +344,8 @@ def load_gsheets_dual_db(q_url, c_url):
                 "c": str(row.get('보기', '')).strip(),
                 "a": str(row.get('정답', '')).strip(),
                 "e": str(row.get('해설', '')).strip(),
-                "d": q_diff,
+                "d": q_diff,     # 3단계(하/중/상) — 기존 생성 로직 호환용
+                "d5": q_diff5,   # 🚀 [v6] 5단계 원본 라벨(하/중하/중중/중상/상) 보존
                 "tag": str(row.get('태그', '')).strip() # 🚀 이 줄 추가
             })
 
@@ -1164,18 +1179,20 @@ with tab1:
         st.markdown("---")
         st.markdown(f"### 📄 생성 결과 — {entry['major']} > {entry['mid']} > {entry['minor']} ({entry.get('difficulty', '')})")
 
-        # 🚀 [핵심 변경] 상단에 독립된 화면 공간을 뚫어 검수 로그 박스를 배치합니다.
-        if "val_logs" in entry and entry["val_logs"]:
-            with st.expander("🔍 AI 문항 실시간 검수 및 자동 교정 로그 (자세히 보기)", expanded=True):
-                for log in entry["val_logs"]:
-                    if "🔄" in log:
-                        st.warning(log)
-                    elif "❌" in log or "🔺" in log:
-                        st.error(log)
-                    elif "✨" in log or "✅" in log:
-                        st.success(log)
-                    else:
-                        st.info(log)
+        # 🚀 [UI 정리] 검수 로그 화면은 사용자 요청으로 숨김 처리함.
+        # (내부 검증 자체는 그대로 동작하고, entry["val_logs"]에 데이터도 계속 쌓임 —
+        #  나중에 다시 보고 싶으면 아래 블록의 주석만 풀면 됩니다.)
+        # if "val_logs" in entry and entry["val_logs"]:
+        #     with st.expander("🔍 AI 문항 실시간 검수 및 자동 교정 로그 (자세히 보기)", expanded=True):
+        #         for log in entry["val_logs"]:
+        #             if "🔄" in log:
+        #                 st.warning(log)
+        #             elif "❌" in log or "🔺" in log:
+        #                 st.error(log)
+        #             elif "✨" in log or "✅" in log:
+        #                 st.success(log)
+        #             else:
+        #                 st.info(log)
 
         prev_type = None
         for res in entry["results"]:
