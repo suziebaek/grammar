@@ -154,11 +154,11 @@ def create_word_document(history_data, is_multiple=False):
 # ── 🎯 전역 설정: 구글 시트 탭별 GID URL 하드코딩 ────────────────────────
 # [H레벨 시트 URL]
 QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=2142463990#gid=2142463990"
-CONCEPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=1932332560#gid=1932332560"
+CONCEPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=145738329#gid=145738329"
 
 # 🚀 [추가] [E레벨 시트 URL] (선생님이 만드신 E레벨 전용 시트 URL로 교체하세요!)
 E_QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=543727737#gid=543727737"
-E_CONCEPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=2028242222#gid=2028242222"
+E_CONCEPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=152808366#gid=152808366"
 
 # ── 페이지 설정 ───────────────────────────────────────────
 st.set_page_config(
