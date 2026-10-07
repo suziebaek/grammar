@@ -43,6 +43,26 @@ TOPIC_LIST = [
 # 🚀 2. [v6 신규] 문제유형(T)을 먼저 고려한 A/B/C 조합 역산
 # 난도 측정 로직 v6: 최종점수 = T(유형계수, 실측) + (A+B+C - 3.5) * 조정계수(잠정 1)
 # 레벨별 목표점수는 792개 실측 분포(최저 -8.6 ~ 최고 +5.5, 중앙값 0.59)를 참고한 근사 중심값이다.
+# 🚀 [챕터 연결] 개념 챕터 이름 → 기출 DB '대분류'에서 찾을 키워드
+CHAPTER_KEYWORDS = {
+    "동사의 종류": ["목적격보어", "사역", "지각동사", "4형식", "문장 구조", "자동사"],
+    "문장의 형식": ["목적격보어", "사역", "지각동사", "4형식", "문장 구조", "자동사"],
+    "시제": ["시제", "동사변화"],
+    "조동사": ["조동사", "가정법"],
+    "수동태": ["수동태"],
+    "태": ["수동태"],
+    "to 부정사/동명사": ["to부정사", "동명사"],
+    "명사/관사": ["관사", "수량형용사"],
+    "대명사 / 일치": ["대명사", "수일치"],
+    "형용사/부사/비교": ["비교", "형용사", "부사", "최상급"],
+    "접속사": ["접속사", "간접의문문", "조건문", "조건절", "병렬"],
+    "관계사": ["관계사", "관계부사"],
+}
+
+def matches_chapter(q, chapter):
+    keywords = CHAPTER_KEYWORDS.get(chapter, [chapter])
+    return any(kw in q["u"] for kw in keywords)
+
 LEVEL_TARGET_SCORE = {"하": -3.0, "중": 0.5, "상": 4.0}
 
 def pick_combo_for_qtype(qtype, level, easy_pool, mid_pool, hard_pool):
@@ -153,12 +173,12 @@ def create_word_document(history_data, is_multiple=False):
 
 # ── 🎯 전역 설정: 구글 시트 탭별 GID URL 하드코딩 ────────────────────────
 # [H레벨 시트 URL]
-QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=2142463990#gid=2142463990"
-CONCEPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=145738329#gid=145738329"
+QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=939067680#gid=939067680"
+CONCEPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=96335809#gid=96335809"
 
 # 🚀 [추가] [E레벨 시트 URL] (선생님이 만드신 E레벨 전용 시트 URL로 교체하세요!)
-E_QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=543727737#gid=543727737"
-E_CONCEPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=152808366#gid=152808366"
+E_QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=900494344#gid=900494344"
+E_CONCEPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=223196885#gid=223196885"
 
 # ── 페이지 설정 ───────────────────────────────────────────
 st.set_page_config(
@@ -792,7 +812,7 @@ with tab1:
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-        ref_pool = [q for q in QUESTIONS if selected_major in q["u"] or selected_mid in q.get("s","")]
+        ref_pool = [q for q in QUESTIONS if matches_chapter(q, selected_major) or selected_mid in q.get("s","")]
         if not ref_pool:
             ref_pool = QUESTIONS
         st.info(f"📎 참고 기출: {len(ref_pool)}문제 ('{selected_major}' 관련)")
@@ -911,9 +931,16 @@ with tab1:
                 type_matched = [q for q in QUESTIONS if q["t"] == qtype and "지문형" not in q.get("tag", "")]
                 st.session_state.filter_log = f"Pool size for '{qtype}': {len(type_matched)} surviving questions."
                 
-                unit_matched = [q for q in QUESTIONS if selected_major in q["u"] and "지문형" not in q.get("tag", "")]
-                qtype_pool = type_matched if len(type_matched) >= 3 else (unit_matched if unit_matched else [q for q in QUESTIONS if "지문형" not in q.get("tag", "")])
-                ref_samples = random.sample(qtype_pool, min(4, len(qtype_pool)))
+                # 🚀 [챕터 연결] 같은 유형 + 같은 챕터 기출을 먼저 쓰고, 모자라면 같은 유형 기출로 채움
+                both_matched = [q for q in type_matched if matches_chapter(q, selected_major)]
+                unit_matched = [q for q in QUESTIONS if matches_chapter(q, selected_major) and "지문형" not in q.get("tag", "")]
+                if len(type_matched) >= 3:
+                    first = random.sample(both_matched, min(4, len(both_matched)))
+                    others = [q for q in type_matched if q not in first]
+                    ref_samples = first + random.sample(others, min(4 - len(first), len(others)))
+                else:
+                    qtype_pool = unit_matched if unit_matched else [q for q in QUESTIONS if "지문형" not in q.get("tag", "")]
+                    ref_samples = random.sample(qtype_pool, min(4, len(qtype_pool)))
                 ref_text = "\n\n".join([f"[기출 {i+1}]\n문제유형: {q['t']}\n발문: {q['q']}\n보기/지문: {q['c']}\n정답: {q['a']}" for i, q in enumerate(ref_samples)])
 
                 integration_rule = ""
