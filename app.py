@@ -187,8 +187,8 @@ E_QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4F
 # 새 학기를 추가할 때는 이 사전에 한 줄 추가하면 됩니다. 맨 위 학기가 기본 선택값입니다.
 SEMESTER_CONCEPT_SHEETS = {
     "2026-겨울": {
-        "H": "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=96335809#gid=96335809",
-        "E": "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=223196885#gid=223196885",
+        "H": "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=145738329#gid=145738329",
+        "E": "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=152808366#gid=152808366",
     },
     "2026-가을": {
         "H": "여기에_가을_H_개념탭_주소를_붙여넣으세요",
