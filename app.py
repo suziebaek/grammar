@@ -191,8 +191,8 @@ SEMESTER_CONCEPT_SHEETS = {
         "E": "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=152808366#gid=152808366",
     },
     "2026-가을": {
-        "H": "여기에_가을_H_개념탭_주소를_붙여넣으세요",
-        "E": "여기에_가을_E_개념탭_주소를_붙여넣으세요",
+        "H": "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=2091792319#gid=2091792319",
+        "E": "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=811386633#gid=811386633",
     },
 }
 
