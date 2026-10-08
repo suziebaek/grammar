@@ -57,6 +57,13 @@ CHAPTER_KEYWORDS = {
     "형용사/부사/비교": ["비교", "형용사", "부사", "최상급"],
     "접속사": ["접속사", "간접의문문", "조건문", "조건절", "병렬"],
     "관계사": ["관계사", "관계부사"],
+    # 🚀 [26겨울 교재 반영] 새로 생긴 챕터
+    "분사/분사구문": ["분사"],
+    "관계대명사": ["관계사", "관계부사"],
+    "가정법/특수구문": ["가정법", "조건문", "조건절", "강조", "도치", "병렬"],
+    "명사절/부사절": ["접속사", "간접의문문", "조건문", "조건절"],
+    "가정법": ["가정법", "조건문", "조건절"],
+    "특수구문": ["강조", "도치", "병렬"],
 }
 
 def matches_chapter(q, chapter):
@@ -171,14 +178,28 @@ def create_word_document(history_data, is_multiple=False):
     return bio.getvalue()
 
 
-# ── 🎯 전역 설정: 구글 시트 탭별 GID URL 하드코딩 ────────────────────────
-# [H레벨 시트 URL]
-QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=2142463990#gid=2142463990"
-CONCEPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=145738329#gid=145738329"
+# ── 🎯 전역 설정: 구글 시트 탭 주소 ─────────────────────────────
+# [기출 DB] 학기와 무관하게 공통으로 사용
+QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=939067680#gid=939067680"
+E_QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=900494344#gid=900494344"
 
-# 🚀 [추가] [E레벨 시트 URL] (선생님이 만드신 E레벨 전용 시트 URL로 교체하세요!)
-E_QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=543727737#gid=543727737"
-E_CONCEPTS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=152808366#gid=152808366"
+# 🚀 [학기 선택] 학기별 개념 DB(concept_hierarchy) 탭 주소
+# 새 학기를 추가할 때는 이 사전에 한 줄 추가하면 됩니다. 맨 위 학기가 기본 선택값입니다.
+SEMESTER_CONCEPT_SHEETS = {
+    "2026-겨울": {
+        "H": "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=96335809#gid=96335809",
+        "E": "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=223196885#gid=223196885",
+    },
+    "2026-가을": {
+        "H": "여기에_가을_H_개념탭_주소를_붙여넣으세요",
+        "E": "여기에_가을_E_개념탭_주소를_붙여넣으세요",
+    },
+}
+
+def _reset_chapter_selection():
+    # 학기가 바뀌면 이전 학기의 챕터/Cell/소분류 선택값이 남지 않도록 초기화
+    for k in ("major", "mid", "minor", "f_major"):
+        st.session_state.pop(k, None)
 
 # ── 페이지 설정 ───────────────────────────────────────────
 st.set_page_config(
@@ -471,6 +492,9 @@ with st.sidebar:
 # ── 사이드바: 레벨 선택 UI (레버 스위치 & 배경색 동적 변경) ──
 with st.sidebar:
     st.markdown("---")
+    st.markdown("### 📚 학기(교재) 선택")
+    SEMESTER = st.selectbox("학기", list(SEMESTER_CONCEPT_SHEETS.keys()), index=0, key="semester",
+                            label_visibility="collapsed", on_change=_reset_chapter_selection)
     st.markdown("### 🎚️ 타겟 레벨 선택")
     
     # 1. 라디오 버튼 대신 '좌우로 움직이는 레버(Toggle)' 사용
@@ -564,6 +588,12 @@ with st.sidebar:
             
 # ── 사전 DB 로드 (캐싱) ──
 # (사이드바 블록이 끝난 후, 제일 먼저 데이터를 불러와야 합니다!)
+# 🚀 [학기 선택] 선택한 학기의 개념 DB 탭 주소 적용
+CONCEPTS_SHEET_URL = SEMESTER_CONCEPT_SHEETS[SEMESTER]["H"]
+E_CONCEPTS_SHEET_URL = SEMESTER_CONCEPT_SHEETS[SEMESTER]["E"]
+if "여기에_" in CONCEPTS_SHEET_URL or "여기에_" in E_CONCEPTS_SHEET_URL:
+    st.warning(f"📚 {SEMESTER} 개념 DB 탭이 아직 연결되지 않았습니다. 다른 학기를 선택하거나, app.py 상단 SEMESTER_CONCEPT_SHEETS에 {SEMESTER} 탭 주소를 넣어 주세요.")
+    st.stop()
 H_QUESTIONS, H_CONCEPTS = load_gsheets_dual_db(QUESTIONS_SHEET_URL, CONCEPTS_SHEET_URL)
 E_QUESTIONS, E_CONCEPTS = load_gsheets_dual_db(E_QUESTIONS_SHEET_URL, E_CONCEPTS_SHEET_URL)
 
@@ -644,7 +674,7 @@ st.markdown("""
 
 st.markdown("""
 <div class="main-header">
-  <h1>📝 영어 기출 문제 생성기</h1>
+  <h1>📝 영어 기출 문제 생성기 <span style='font-size:0.55em;'>(""" + SEMESTER + """ 교재)</span></h1>
   <p>강남구 중학교 기출 154문제 데이터 기반 · AI 응용 문제 자동 생성 (클라우드/로컬 하이브리드)</p>
 </div>
 """, unsafe_allow_html=True)
