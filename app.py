@@ -180,8 +180,8 @@ def create_word_document(history_data, is_multiple=False):
 
 # ── 🎯 전역 설정: 구글 시트 탭 주소 ─────────────────────────────
 # [기출 DB] 학기와 무관하게 공통으로 사용
-QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=939067680#gid=939067680"
-E_QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=900494344#gid=900494344"
+QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=2142463990#gid=2142463990"
+E_QUESTIONS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1gSMH96-BB8sjs4FbNy8bb_KSnP8zOpBQPQ_6Q4ylZ90/edit?gid=543727737#gid=543727737"
 
 # 🚀 [학기 선택] 학기별 개념 DB(concept_hierarchy) 탭 주소
 # 새 학기를 추가할 때는 이 사전에 한 줄 추가하면 됩니다. 맨 위 학기가 기본 선택값입니다.
