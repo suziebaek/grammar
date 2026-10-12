@@ -196,7 +196,7 @@ OUTPUT_FORMAT = """\
 
 【문제 N】
 [발문]
-{specific_instruction}
+(요청 조건(request_conditions)에 적힌 발문 문장을 그대로 사용)
 
 [보기/지문]
 ① ...

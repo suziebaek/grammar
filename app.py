@@ -18,7 +18,7 @@ from prompts import build_generation_prompt as build_prompt_h
 from prompts_e import build_generation_prompt_e
 from prompts import build_retry_prompt
 from prompts_common import T_SCORES  # 🚀 [v6] 792개 실측 유형계수
-from flag_checker import verify_all_questions  # 🚀 [추가] META 산수/플래그를 코드로 재검증
+from flag_checker import verify_all_questions, _extract_meta_scores  # 🚀 [v6-9] 실제 난이도 계산용  # 🚀 [추가] META 산수/플래그를 코드로 재검증
 from sorter import get_sorted_q_nums  # 🚀 [추가] 외부 정렬 모듈 불러오기
 from excel_exporter import create_excel_document
 
@@ -85,6 +85,27 @@ def pick_combo_for_qtype(qtype, level, easy_pool, mid_pool, hard_pool):
     # (풀 자체를 벗어나면 레벨 라벨의 의미가 흐려지므로, 풀 내에서만 최적을 찾는다.)
     pool = {"하": easy_pool, "중": mid_pool, "상": hard_pool}[level]
     return min(pool, key=lambda comb: abs(sum(comb) - needed_sum))
+
+
+# 🚀 [v6-9] 문항별 D(지문 형식) 배정: B(단서 위치)를 실제로 구현할 수 있는 지문 길이를 함께 지정
+def assign_d(b, is_e_level):
+    if is_e_level:
+        return 2 if b >= 2 else (1 if b == 1 else 0)
+    # H레벨: 완성형 지문(D=2) 금지. B가 2~3점일 때만 2~3문장 초단문 맥락(D=1) 허용
+    return 1 if b >= 2 else 0
+
+# 🚀 [v6-9] AI가 보고한 A+B+C로 실제 난이도 등급 계산 (배정 등급 구간과 동일 기준)
+LEVEL_BANDS = {"H": ((0, 2, "하"), (3, 6, "중"), (7, 9, "상")),
+               "E": ((0, 3, "하"), (4, 6, "중"), (7, 9, "상"))}
+def actual_level_from_text(text, is_e_level):
+    scores = _extract_meta_scores(text or "")
+    if not scores:
+        return None
+    total = scores["a"] + scores["b"] + scores["c"]
+    for lo, hi, label in LEVEL_BANDS["E" if is_e_level else "H"]:
+        if lo <= total <= hi:
+            return label
+    return None
 
 
 def get_difficulty_combs(is_e_level):
@@ -712,10 +733,16 @@ with tab1:
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
 
         major_list = list(CONCEPTS.keys()) if CONCEPTS else ["데이터 없음"]
-        selected_major = st.selectbox("① 챕터", major_list, key="major")
+        def _reset_minor_and_mid():
+            # 🚀 [버그 수정] 챕터가 바뀌면 이전 챕터의 Cell·소분류 선택이 남아 소분류가 빈칸이 되던 문제 방지
+            for k in ("mid", "minor"):
+                st.session_state.pop(k, None)
+        def _reset_minor():
+            st.session_state.pop("minor", None)
+        selected_major = st.selectbox("① 챕터", major_list, key="major", on_change=_reset_minor_and_mid)
 
         mid_list = list(CONCEPTS[selected_major].keys()) if CONCEPTS and selected_major in CONCEPTS else ["데이터 없음"]
-        selected_mid = st.selectbox("② Cell", mid_list, key="mid")
+        selected_mid = st.selectbox("② Cell", mid_list, key="mid", on_change=_reset_minor)
 
         minor_items = CONCEPTS[selected_major][selected_mid] if CONCEPTS and selected_major in CONCEPTS and selected_mid in CONCEPTS[selected_major] else []
         
@@ -889,6 +916,9 @@ with tab1:
             st.error("⚠️ 사이드바에 통합 API Key를 입력해주세요.")
         elif not selected_types:
             st.error("⚠️ 문제 유형을 하나 이상 선택해주세요.")
+        elif not point_text.strip():
+            # 🚀 [버그 수정] 개념 DB(출제포인트·기본 규칙·인접오류) 없이 생성되던 문제 차단
+            st.error("⚠️ 선택된 소분류가 없어 개념 DB 내용이 비어 있습니다. ③ 소분류를 1개 이상 선택한 뒤 다시 생성해 주세요.")
         else:
             batch_results = []
             progress = st.progress(0, text="생성 준비 중...")
@@ -987,7 +1017,8 @@ with tab1:
                     # 🚀 [추가] global_q_num 번호표에 해당하는 난이도를 저장해 둠
                     all_diff_map[global_q_num] = lvl
                     
-                    q_assignments += f"【문제 {global_q_num}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점) | 강제 지문 소재: [{topic}]\n"
+                    d = assign_d(b, IS_E_LEVEL)
+                    q_assignments += f"【문제 {global_q_num}】 타겟 난이도: [{lvl}] (조건: A={a}점, B={b}점, C={c}점, D={d}점) | 강제 지문 소재: [{topic}]\n"
                     global_q_num += 1
 
                 # 🚀 [변경] system/user 분리: 규칙·루브릭·출력형식(고정)은 system,
@@ -1139,17 +1170,22 @@ with tab1:
             current_idx = 1
             
            # 🚀 [추가] Sorter 모듈을 호출하여 정렬된 키 리스트를 받아옴!
+            # 🚀 [v6-9] AI가 보고한 A·B·C로 실제 난이도를 계산(보고가 없으면 배정 난이도 사용)
+            actual_diff_map = {}
+            for _k, _txt in all_generated_dict.items():
+                actual_diff_map[_k] = actual_level_from_text(_txt, IS_E_LEVEL) or all_diff_map[_k]
             sorted_keys = get_sorted_q_nums(
                 q_keys=all_generated_dict.keys(),
                 all_qtype_map=all_qtype_map,
-                all_diff_map=all_diff_map,
+                all_diff_map=actual_diff_map,
                 is_diff_sort=is_diff_sort
             )
             
             for q_num in sorted_keys: # 🚀 sorted() 대신 정렬된 리스트 사용
                 full_text = all_generated_dict[q_num]
                 qtype = all_qtype_map[q_num] 
-                qdiff = all_diff_map[q_num] # 🚀 이 문제의 난이도 가져오기
+                qdiff = actual_diff_map[q_num]     # 🚀 [v6-9] 실제 난이도(엑셀·정렬 기준)
+                assigned_diff = all_diff_map[q_num] # 배정 난이도(비교용)
                 
                 # 🚀 화면/워드 출력용 묶음 제목(Header) 동적 생성
                 group_header = f"【{qdiff}】 난이도" if is_diff_sort else f"🟦 【{qtype}】 유형"
@@ -1197,7 +1233,7 @@ with tab1:
                     dl_text = full_text.replace("【", "").replace("】", ".").replace("[발문]\n", "").replace("[보기/지문]\n", "").replace("[정답]", "정답:").replace("[해설]", "해설:")
 
                 is_valid = "🚨" not in full_text
-                feedback = "검수 통과" if is_valid else "부분 재생성됨 (육안 확인 요망)"
+                feedback = ("검수 통과" if use_validator else "검수 생략 (검증기 꺼짐)") if is_valid else "부분 재생성됨 (육안 확인 요망)"
 
                 # excel_exporter가 안전하게 수신하도록 송신 바구니 완벽 조립
                 batch_results.append({
@@ -1207,7 +1243,9 @@ with tab1:
                     "dl_text": dl_text,
                     "is_valid": is_valid, 
                     "feedback": feedback,
+                    "validator_used": use_validator,
                     "raw_diff": qdiff, 
+                    "assigned_diff": assigned_diff,
                     "clean_question": parts.get("발문", ""), # default fallback은 엑셀 모듈이 알아서 처리
                     "clean_passage": new_passage,
                     "clean_answer": new_ans,
@@ -1259,10 +1297,15 @@ with tab1:
                 st.markdown(f"### {current_header}")
                 prev_type = current_header
             
+            _as, _ac = res.get("assigned_diff"), res.get("raw_diff")
+            if _as and _ac and _as != _ac:
+                st.warning(f"📊 난이도 차이: 배정 **{_as}** → 실제 **{_ac}** (AI가 보고한 A·B·C 기준, 엑셀원고에는 실제 난이도로 기록)")
             if not res.get("is_valid", True):
                 st.error(f"⚠️ **{res.get('feedback')}**")
-            else:
+            elif res.get("validator_used", True):
                 st.success("✅ **검수 통과**")
+            else:
+                st.info("ℹ️ **검수 생략 (검증기 꺼짐)** — 내용은 직접 확인해 주세요.")
 
             raw = str(res.get("text", ""))
             
