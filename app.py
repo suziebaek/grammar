@@ -1360,7 +1360,9 @@ with tab2:
 
     fc1, fc2, fc3 = st.columns(3)
     with fc1:
-        f_major = st.selectbox("챕터 필터", ["전체"] + list(CONCEPTS.keys()), key="f_major")
+        UNLINKED_LABEL = "기타 · 챕터 미연결 (어법 종합 등)"
+        f_major = st.selectbox("챕터 필터", ["전체"] + list(CONCEPTS.keys()) + [UNLINKED_LABEL], key="f_major",
+                               help="챕터를 고르면 그 챕터에 연결된 기출(대분류 기준)이 나옵니다. 어법 종합처럼 교재 챕터에 연결되지 않는 기출은 '기타'에서 볼 수 있습니다.")
     with fc2:
         all_q_types = sorted(set(q["t"] for q in QUESTIONS if q["t"]))
         f_type = st.selectbox("문제유형 필터", ["전체"] + all_q_types, key="f_type")
@@ -1368,8 +1370,11 @@ with tab2:
         kw = st.text_input("키워드", placeholder="예) 관계대명사, 현재완료")
 
     filtered = QUESTIONS
-    if f_major != "전체":
-        filtered = [q for q in filtered if f_major in q["u"]]
+    # 🚀 [챕터 연결] 문제 생성과 같은 대응표(CHAPTER_KEYWORDS)로 기출을 거름
+    if f_major == UNLINKED_LABEL:
+        filtered = [q for q in filtered if not any(matches_chapter(q, ch) for ch in CONCEPTS.keys())]
+    elif f_major != "전체":
+        filtered = [q for q in filtered if matches_chapter(q, f_major)]
     if f_type != "전체":
         filtered = [q for q in filtered if q["t"] == f_type]
     if kw:
