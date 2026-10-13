@@ -997,6 +997,9 @@ with tab1:
             # 🚀 [버그 수정] 개념 DB(출제포인트·기본 규칙·인접오류) 없이 생성되던 문제 차단
             st.error("⚠️ 선택된 소분류가 없어 개념 DB 내용이 비어 있습니다. ③ 소분류를 1개 이상 선택한 뒤 다시 생성해 주세요.")
         else:
+            # 🚀 [v6-13] 새 생성을 시작하면 이전 결과·다운로드 버튼을 먼저 지움
+            #    (생성이 실패해도 이전 문서가 새 문서처럼 내려가지 않도록)
+            st.session_state.pending = []
             batch_results = []
             progress = st.progress(0, text="생성 준비 중...")
             total = len(selected_types)
@@ -1276,9 +1279,15 @@ with tab1:
                 current_idx += 1
                 
                 parts = {}
+                # 🚀 [v6-13] 모델마다 다른 표기 흡수: "발문:", "## 발문", 【발문】, [보기 / 지문], 번호와 같은 줄 표기
+                norm_text = re.sub(r'(?m)^[ \t]*#{1,6}[ \t]*', '', full_text)
+                norm_text = re.sub(r'【\s*(발문|보기\s*/\s*지문|보기|지문|선택지|정답|해설)\s*】', r'[\1]', norm_text)
+                norm_text = re.sub(r'(?m)^[ \t]*(발문|보기\s*/\s*지문|정답|해설)[ \t]*[:：]', r'[\1]', norm_text)
+                norm_text = re.sub(r'\[\s*보기\s*/\s*지문\s*\]', '[보기/지문]', norm_text)
+                norm_text = re.sub(r'[ \t]*(\[(?:발문|보기/지문|선택지|정답|해설)\])', r'\n\1', norm_text)
                 # 🚀 [수정됨] AI가 태그 뒤에 숫자를 바로 붙여 쓰든, 별표(**)를 치든 완벽하게 잘라내는 강력한 만능 패턴
                 pattern = r'(?:^|\n)\s*\**\[\s*(발문|보기/지문|보기|지문|선택지|정답|해설)\s*\]\**\s*'
-                splits = re.split(pattern, full_text)
+                splits = re.split(pattern, norm_text)
                 
                 if len(splits) > 1:
                     for i in range(1, len(splits), 2):
@@ -1290,6 +1299,21 @@ with tab1:
                         # 🚀 lstrip(':')을 추가하여 "[정답]: ③" 처럼 콜론이 섞여 있어도 깔끔하게 숫자만 남기도록 방어
                         tag_content = splits[i+1].replace("---", "").strip().lstrip(':').strip()
                         parts[tag_name] = tag_content
+
+                # 🚀 [v6-13] 표시 없이 쓴 앞부분(문제 번호 바로 뒤)을 발문/지문으로 복구
+                _head = re.sub(r'【문제 \d+】', '', splits[0] if splits else '').strip()
+                if _head and not parts.get("발문"):
+                    if parts.get("보기/지문"):
+                        parts["발문"] = _head
+                    else:
+                        _hl = _head.split("\n", 1)
+                        parts["발문"] = _hl[0].strip()
+                        if len(_hl) > 1:
+                            parts["보기/지문"] = _hl[1].strip()
+                # 발문 안에 지문·선택지가 섞여 들어온 경우 분리
+                if parts.get("발문") and not parts.get("보기/지문") and "\n" in parts["발문"]:
+                    _first, _rest = parts["발문"].split("\n", 1)
+                    parts["발문"], parts["보기/지문"] = _first.strip(), _rest.strip()
 
                 # 🚀 모든 분기에서 공통적으로 쓰일 변수를 미리 선언하여 NameError 원천 차단!
                 new_passage = ""
@@ -1329,7 +1353,11 @@ with tab1:
                     "parsed_parts": parts
                 })
             # ── 4. 세션 히스토리에 최종 저장 ──
+            if not batch_results:
+                st.error("⚠️ AI에게서 문항을 하나도 받지 못했습니다. 위 오류 메시지를 확인한 뒤 다시 생성해 주세요. (이전 결과는 지웠습니다)")
+                st.stop()
             entry = {
+                "generated_at": datetime.now().strftime("%H:%M"),
                 "major": selected_major,
                 "mid": selected_mid,
                 "minor": selected_minor_label,
@@ -1350,6 +1378,7 @@ with tab1:
         entry = st.session_state.pending[-1]
         st.markdown("---")
         st.markdown(f"### 📄 생성 완료 — {entry['major']} > {entry['mid']}")
+        st.caption(f"유형: {', '.join(entry.get('types', []))} · 생성 시각 {entry.get('generated_at', '')}")
         _n_total = len(entry.get("results", []))
         _n_check = sum(1 for _r in entry.get("results", [])
                        if not _r.get("is_valid", True) or (_r.get("assigned_diff") and _r.get("assigned_diff") != _r.get("raw_diff")))
@@ -1448,7 +1477,9 @@ with tab1:
             
         now_str = datetime.now().strftime("%y%m%d")
         safe_model = selected_model.split('/')[-1] 
-        f_name = f"{entry['major']}_{entry['mid']}_{now_str}_{safe_model}"
+        _types_tag = "+".join(entry.get("types", []))[:40]
+        _time_tag = entry.get("generated_at", "").replace(":", "")
+        f_name = re.sub(r'[\\/:*?"<>|]', '-', f"{entry['major']}_{entry['mid']}_{_types_tag}_{now_str}-{_time_tag}_{safe_model}")
     
         unique_key = len(st.session_state.history) 
         # 🚀 [v6-10] Word 문서 하나만 바로 받기

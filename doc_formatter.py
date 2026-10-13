@@ -307,6 +307,34 @@ def _write_question(doc, num, stem, passage, level):
                 _para(doc, f"{n} {txt}", indent=0.6, first=-0.5, after=1)
 
 
+def _shade(cell, fill="F2F2F2"):
+    tcPr = cell._element.get_or_add_tcPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), fill)
+    tcPr.append(shd)
+
+
+def _write_answer_box(doc, answer, explanation, diff=""):
+    # 🚀 [v6-13] 문항 바로 아래 정답·해설 상자
+    tbl = doc.add_table(rows=1, cols=1)
+    tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+    cell = tbl.rows[0].cells[0]
+    _cell_borders(cell, False)
+    _shade(cell)
+    p0 = _first_par(cell)
+    p0.paragraph_format.space_after = Pt(1)
+    _add_runs(p0, f"정답 {answer}", size=9, bold=True)
+    if diff:
+        _add_runs(p0, f"   [{diff}]", size=8, color=(0x59, 0x59, 0x59))
+    if explanation:
+        p1 = _para(cell, "", after=0)
+        _add_runs(p1, "해설  ", size=9, bold=True)
+        _add_runs(p1, explanation, size=9)
+    _para(doc, "", after=2)
+
+
 def _option_notes(passage, level):
     notes = []
     limit = OPTION_WORD_LIMIT.get(level, 15)
@@ -336,6 +364,13 @@ def _collect(entry, level):
             notes.append(re.sub(r"[🚨*]", "", m).strip())
         drop = lambda s: "\n".join(l for l in str(s).split("\n")
                                    if not l.strip().startswith("🚨") and not re.match(r"^\s*문제\s*\d+\.?\s*$", l))
+        if not str(stem).strip() and not str(passage).strip() and r.get("text"):
+            # 🚀 [v6-13] 발문·지문 자동 분리 실패 → 원문(정답 앞부분)을 그대로 사용
+            raw = re.split(r"\[\s*정답\s*\]|정답\s*[:：]", str(r["text"]))[0]
+            raw = re.sub(r"【문제\s*\d+】|\[\s*(발문|보기\s*/\s*지문|보기|지문|선택지)\s*\]", "", raw).strip()
+            _l = raw.split("\n", 1)
+            stem, passage = _l[0], (_l[1] if len(_l) > 1 else "")
+            notes.append("발문·지문을 자동으로 나누지 못해 원문을 그대로 넣었습니다. 형식을 확인해 주세요.")
         stem, passage = normalize(drop(stem)), normalize(drop(passage))
         stem = re.sub(r"^\s*\d+\.\s*", "", stem).replace("\n", " ")
         ans, exp = clean_explanation(ans), clean_explanation(exp)
@@ -352,7 +387,7 @@ def _collect(entry, level):
     return out
 
 
-def build_exam_docx(history_data, is_multiple=False, level="H"):
+def build_exam_docx(history_data, is_multiple=False, level="H", answer_layout="inline"):
     sets = history_data if is_multiple else [history_data]
     doc = Document()
     sec = doc.sections[0]
@@ -369,21 +404,24 @@ def build_exam_docx(history_data, is_multiple=False, level="H"):
               color=(0x59, 0x59, 0x59), after=6)
         for qi, it in enumerate(items, start=1):
             _write_question(doc, qi, it["stem"], it["passage"], lv)
+            if answer_layout == "inline":
+                _write_answer_box(doc, it["answer"], it["explanation"], it["diff"])
         all_items.append((si, title, items))
 
-    # 정답 및 해설
-    doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
-    _para(doc, "정답 및 해설", size=12, bold=True, after=6)
-    for si, title, items in all_items:
-        if is_multiple:
-            _para(doc, f"[세트 {si}] {title}", size=10, bold=True, before=6)
-        for qi, it in enumerate(items, start=1):
-            p = _para(doc, "", before=4, after=1)
-            _add_runs(p, f"{qi}. 정답 {it['answer']}", bold=True)
-            if it["diff"]:
-                _add_runs(p, f"  [{it['diff']}]", size=9, color=(0x59, 0x59, 0x59))
-            if it["explanation"]:
-                _para(doc, it["explanation"], indent=0.4, after=2)
+    # 정답 및 해설 (뒤쪽에 모으는 방식: answer_layout="end"일 때만)
+    if answer_layout == "end":
+        doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
+        _para(doc, "정답 및 해설", size=12, bold=True, after=6)
+        for si, title, items in all_items:
+            if is_multiple:
+                _para(doc, f"[세트 {si}] {title}", size=10, bold=True, before=6)
+            for qi, it in enumerate(items, start=1):
+                p = _para(doc, "", before=4, after=1)
+                _add_runs(p, f"{qi}. 정답 {it['answer']}", bold=True)
+                if it["diff"]:
+                    _add_runs(p, f"  [{it['diff']}]", size=9, color=(0x59, 0x59, 0x59))
+                if it["explanation"]:
+                    _para(doc, it["explanation"], indent=0.4, after=2)
 
     # 검토 메모(출판 전 확인용)
     noted = [(si, qi, it["notes"]) for si, _, items in all_items for qi, it in enumerate(items, start=1) if it["notes"]]
