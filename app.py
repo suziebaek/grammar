@@ -37,6 +37,14 @@ SHOW_EXTRA_DOWNLOADS = False   # txt·엑셀원고 다운로드 버튼 표시
 
 from doc_formatter import build_exam_docx  # 🚀 [v6-10] 출판 형식 Word 출력
 
+# 🚀 [v6-12] 생각 과정이 항상 켜진 모델: temperature 지정 불가, 출력 한도에 생각 분량 포함
+REASONING_MODELS = {"anthropic/claude-sonnet-5.5"}
+
+def gen_call_kwargs(model, temperature, max_tokens, effort="low"):
+    if model in REASONING_MODELS:
+        return {"max_tokens": max(max_tokens, 20000), "extra_body": {"reasoning": {"effort": effort}}}
+    return {"temperature": temperature, "max_tokens": max_tokens}
+
 TOPIC_LIST = [
     # 🚀 [v6-10] 중학교 교과서 수준의 일상 소재로 교체 (전문 소재: 우주 탐사, 심해 생물, 인공지능, 종교 등 제외)
     "학교 생활", "동아리 활동", "친구와 우정", "가족 행사", "생일 파티", "주말 계획",
@@ -501,8 +509,16 @@ with st.sidebar:
     
     selected_model = st.selectbox(
         "🤖 출제 인공지능 엔진 모델",
-        options=["anthropic/claude-sonnet-4.6", "google/gemini-2.5-flash-lite"], help="생성에 사용할 모델 선택, 시험가동 시 gemini-2.5-flash-lite 선택."
+        options=["anthropic/claude-sonnet-4.6", "anthropic/claude-sonnet-5.5", "google/gemini-2.5-flash-lite"],
+        help="생성에 사용할 모델 선택, 시험가동 시 gemini-2.5-flash-lite 선택. claude-sonnet-5.5는 생각 과정이 항상 켜진 최신 모델입니다."
     )
+    # 🚀 [v6-12] 생각 과정이 항상 켜진 모델(Sonnet 5.5)은 사고 깊이(effort)로 비용·속도 조절
+    reasoning_effort = "low"
+    if selected_model in REASONING_MODELS:
+        reasoning_effort = st.selectbox(
+            "🧠 사고 깊이 (effort)", ["low", "medium", "high"], index=0,
+            format_func=lambda e: {"low": "낮음 (권장 · 빠르고 저렴)", "medium": "보통", "high": "높음 (느리고 비쌈)"}[e],
+            help="높을수록 더 깊이 생각하지만 생각한 분량만큼 출력 토큰 비용이 늘고 시간이 오래 걸립니다.")
     val_selected_model = st.selectbox("🔎 검수용 AI 모델", ["google/gemini-3.1-pro-preview", "google/gemini-2.5-flash-lite"], help="전체 문항을 1회 검증할 때 사용할 모델을 선택합니다, 시험가동 시 gemini-2.5-flash-lite 선택.")
     
     detected_platform = "대기 중..."
@@ -1113,7 +1129,7 @@ with tab1:
                                 {"role": "system", "content": system_prompt},
                                 {"role": "user", "content": user_prompt},
                             ],
-                            temperature=0.75, max_tokens=9000
+                            **gen_call_kwargs(selected_model, 0.75, 9000, reasoning_effort)
                         )
                         result_text = response.choices[0].message.content
 
@@ -1202,8 +1218,7 @@ with tab1:
                                     {"role": "system", "content": retry_system_prompt},
                                     {"role": "user", "content": retry_user_prompt},
                                 ],
-                                temperature=0.5, # 오답 디테일을 정교하게 고치기 위해 온도를 살짝 낮춤
-                                max_tokens=9000
+                                **gen_call_kwargs(selected_model, 0.5, 9000, reasoning_effort)  # 오답 디테일을 정교하게 고치기 위해 온도를 살짝 낮춤(일반 모델)
                             )
                             retry_result_text = response.choices[0].message.content.strip()
                         
