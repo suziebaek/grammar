@@ -31,13 +31,19 @@ def show_validator_warning():
     if st.button("확인", type="primary", use_container_width=True):
         st.rerun()
         
+# 🚀 [v6-10] 화면/다운로드 표시 설정 (필요하면 True로 바꾸면 다시 보임)
+SHOW_RESULT_PREVIEW = False    # 생성 결과를 화면에 문항별로 표시
+SHOW_EXTRA_DOWNLOADS = False   # txt·엑셀원고 다운로드 버튼 표시
+
+from doc_formatter import build_exam_docx  # 🚀 [v6-10] 출판 형식 Word 출력
+
 TOPIC_LIST = [
-    "역사", "우주 탐사", "심해 생물", "인공지능", "날씨", "일상 생활(여행)",
-    "일상 생활(방과후 활동)", "일상 생활(규칙)", "스포츠 과학", "농업", "일상 생활(쇼핑)", "우정",
-    "일상 생활(가족)", "기후 변화", "건축 공학", "야생 동물 보호",
-    "지구 온난화", "일상 생활(운전)", "심리학", "학교 생활", "문학", "일상 생활(건강)",
-    "로봇", "환경", "지리", "종교", "소셜 미디어", "요리", "일상 생활(식사)"
-    
+    # 🚀 [v6-10] 중학교 교과서 수준의 일상 소재로 교체 (전문 소재: 우주 탐사, 심해 생물, 인공지능, 종교 등 제외)
+    "학교 생활", "동아리 활동", "친구와 우정", "가족 행사", "생일 파티", "주말 계획",
+    "방학 여행", "캠핑", "반려동물", "동물원 견학", "공원 산책", "운동 경기",
+    "체육 대회", "요리와 음식", "학교 급식", "장보기", "도서관", "독서",
+    "영화 관람", "음악 공연", "박물관 견학", "봉사 활동", "이웃", "날씨와 계절",
+    "건강한 생활 습관", "용돈 관리", "취미 활동", "학교 축제", "과학 수업", "교통 안전",
 ]
 
 # 🚀 2. [v6 신규] 문제유형(T)을 먼저 고려한 A/B/C 조합 역산
@@ -139,6 +145,12 @@ def add_paragraph_with_tags(doc_or_element, text):
             
 # 🚀 [수정] 기존 create_word_document 함수 통째로 교체
 def create_word_document(history_data, is_multiple=False):
+    # 🚀 [v6-10] 출판 교재·공인 시험 형식으로 서식을 통일한 Word 문서
+    level = "E" if globals().get("IS_E_LEVEL") else "H"
+    return build_exam_docx(history_data, is_multiple=is_multiple, level=level)
+
+
+def _create_word_document_legacy(history_data, is_multiple=False):
     doc = Document()
     
     # 🚀 [추가] 챕터(생성정보) 글자 크기를 10pt로 강제하는 헬퍼 함수
@@ -805,12 +817,61 @@ with tab1:
 
         safe_default = ["어법상 맞는 것"] if "어법상 맞는 것" in SORTED_TYPES else (SORTED_TYPES[:1] if SORTED_TYPES else None)
 
+        # 🚀 [v6-11] A: 이 챕터 기출에서 많이 나온 유형 추천 (문제 생성·기출 탐색과 같은 챕터 연결 기준)
+        from collections import Counter as _Counter
+        _chapter_pool = [q for q in QUESTIONS if selected_major and matches_chapter(q, selected_major)]
+        _type_counts = _Counter(q["t"] for q in _chapter_pool if q["t"])
+        _ranked = [t for t, _ in _type_counts.most_common() if t in SORTED_TYPES]
+        if _ranked:
+            st.caption("💡 이 챕터 기출에서 많이 나온 유형: "
+                       + " · ".join(f"{t} {_type_counts[t]}" for t in _ranked[:5]))
+        else:
+            st.caption("💡 이 챕터에 연결된 기출이 없어 추천할 유형이 없습니다. 아래 예시를 보고 골라 주세요.")
+        _type_options = _ranked + [t for t in SORTED_TYPES if t not in _type_counts]
+        _default_types = _ranked[:1] or safe_default
+
         selected_types = st.multiselect(
             "유형",
-            SORTED_TYPES,
-            default=safe_default,
+            _type_options,
+            default=_default_types,
+            key=f"types_{selected_major}",   # 챕터가 바뀌면 추천 유형으로 다시 시작
+            format_func=lambda t: f"{t} (기출 {_type_counts[t]})" if _type_counts.get(t) else t,
             label_visibility="collapsed",
         )
+
+        # 🚀 [v6-11] 이 챕터 기출에 없는 유형을 고르면 알림
+        _missing = [t for t in (selected_types or []) if not _type_counts.get(t)]
+        if _missing:
+            st.warning("⚠️ 이 챕터 기출에는 없는 유형입니다: " + ", ".join(_missing)
+                       + " — 아래 예시를 보고 이 Cell에 맞는 유형인지 확인해 주세요.")
+
+        # 🚀 [v6-11] C: 선택한 유형의 기출 예시 (이 챕터 기출 우선, 없으면 다른 챕터 기출)
+        if selected_types:
+            with st.expander("👀 선택한 유형의 기출 예시 보기", expanded=False):
+                for _t in selected_types:
+                    _ex = [q for q in _chapter_pool if q["t"] == _t]
+                    _src = "이 챕터 기출"
+                    if not _ex:
+                        _ex = [q for q in QUESTIONS if q["t"] == _t]
+                        _src = "다른 챕터 기출 (이 챕터에는 이 유형 기출이 없음)"
+                    if not _ex:
+                        continue
+                    _seen, _uniq = set(), []
+                    for _q in sorted(_ex, key=lambda q: len(q.get("c", ""))):   # 짧은 예시부터
+                        _sig = re.sub(r"[^A-Za-z]", "", str(_q.get("c", ""))).lower()[:40]   # 같은 기출(학교만 다름) 중복 제거
+                        if _sig in _seen:
+                            continue
+                        _seen.add(_sig); _uniq.append(_q)
+                        if len(_uniq) == 2:
+                            break
+                    _ex = _uniq
+                    st.markdown(f"**▶ {_t}** · {_src}")
+                    for _q in _ex:
+                        st.markdown(f"**{_q['q']}**")
+                        if _q.get("c"):
+                            st.markdown(str(_q["c"])[:700].replace("\n", "  \n"), unsafe_allow_html=True)
+                        st.caption(f"정답: {_q.get('a', '')} · 대분류: {_q.get('u', '')} · 난이도: {_q.get('d5') or _q.get('d', '')}")
+                    st.markdown("---")
 
         # ────────────────────────────────────────────────────────
         st.markdown("---")
@@ -1260,6 +1321,7 @@ with tab1:
                 "difficulty": f"총 {total_num}문제 (상{final_high}/중{final_mid}/하{final_low})",
                 "types": selected_types,
                 "count": total_num,
+                "level": "E" if IS_E_LEVEL else "H",
                 "results": batch_results,
                 "val_logs": validation_debug_logs  # 🚀 수집한 실시간 로그를 보따리에 함께 패킹!
             }
@@ -1272,7 +1334,11 @@ with tab1:
     if st.session_state.pending:
         entry = st.session_state.pending[-1]
         st.markdown("---")
-        st.markdown(f"### 📄 생성 결과 — {entry['major']} > {entry['mid']} > {entry['minor']} ({entry.get('difficulty', '')})")
+        st.markdown(f"### 📄 생성 완료 — {entry['major']} > {entry['mid']}")
+        _n_total = len(entry.get("results", []))
+        _n_check = sum(1 for _r in entry.get("results", [])
+                       if not _r.get("is_valid", True) or (_r.get("assigned_diff") and _r.get("assigned_diff") != _r.get("raw_diff")))
+        st.caption(f"{_n_total}문항 생성 · 확인이 필요한 문항 {_n_check}개 (Word 문서 맨 끝 '검토 메모'에 정리)")
 
         # 🚀 [UI 정리] 검수 로그 화면은 사용자 요청으로 숨김 처리함.
         # (내부 검증 자체는 그대로 동작하고, entry["val_logs"]에 데이터도 계속 쌓임 —
@@ -1290,7 +1356,7 @@ with tab1:
         #                 st.info(log)
 
         prev_type = None
-        for res in entry["results"]:
+        for res in (entry["results"] if SHOW_RESULT_PREVIEW else []):
             current_header = res.get('group_header', f"🟦 【{res['type']}】 유형")
             
             if current_header != prev_type:
@@ -1369,23 +1435,31 @@ with tab1:
         safe_model = selected_model.split('/')[-1] 
         f_name = f"{entry['major']}_{entry['mid']}_{now_str}_{safe_model}"
     
-        dl_col1, dl_col2, dl_col3 = st.columns(3)
         unique_key = len(st.session_state.history) 
+        # 🚀 [v6-10] Word 문서 하나만 바로 받기
+        st.download_button(
+            "📄 Word 문서 다운로드 (.docx)",
+            data=create_word_document(entry, is_multiple=False), file_name=f"{f_name}.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True, type="primary", key=f"dl_main_docx_{unique_key}"
+        )
+        dl_col1, dl_col2, dl_col3 = st.columns(3) if SHOW_EXTRA_DOWNLOADS else (None, None, None)
         
-        with dl_col1:
+        if SHOW_EXTRA_DOWNLOADS:
+          with dl_col1:
             st.download_button(
                 "⬇️ 방금 만든 문제 (.txt)",
                 data=set_text.encode("utf-8"), file_name=f"{f_name}.txt",
                 mime="text/plain", use_container_width=True, key=f"dl_current_txt_{unique_key}" 
             )
-        with dl_col2:
+          with dl_col2:
             st.download_button(
                 "📄 방금 만든 문제 (.docx)",
                 data=create_word_document(entry, is_multiple=False), file_name=f"{f_name}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 use_container_width=True, key=f"dl_current_docx_{unique_key}"
             )
-        with dl_col3:
+          with dl_col3:
             st.download_button(
                 "📊 엑셀원고 다운로드 (.xlsx)",
                 # 🚀 외부 모듈에서 불러온 함수 사용!
@@ -1469,7 +1543,8 @@ with tab3:
                 all_combined += f"{r.get('dl_text', r['text'])}\n\n"
 
         c1, c2 = st.columns(2)
-        with c1:
+        with (c1 if SHOW_EXTRA_DOWNLOADS else st.empty()):
+          if SHOW_EXTRA_DOWNLOADS:
             st.download_button(
                 "⬇️ 전체 기록 통합 다운로드 (.txt)",
                 data=all_combined.encode("utf-8"),
@@ -1519,6 +1594,7 @@ with tab3:
 
                 sc1, sc2 = st.columns(2)
                 with sc1:
+                  if SHOW_EXTRA_DOWNLOADS:
                     st.download_button(
                         f"⬇️ 세트 {idx} 다운로드 (.txt)",
                         data=set_text_this.encode("utf-8"),
